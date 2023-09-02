@@ -16,6 +16,7 @@ add_subdirectory(third_party/VulkanMemoryAllocator)
 #
 set(MANA_SOURCES
     "mana/internal/vulkan_instance.cpp"
+    "mana/internal/vulkan_queue.cpp"
     "mana/internal/vulkan_window.cpp"
 
     "mana/mana_instance.cpp"

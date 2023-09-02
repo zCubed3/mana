@@ -73,7 +73,7 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
         instance_settings.api_version = get_api_version(config.features);
 
         // Setup and validate extensions
-        auto requested_extensions = std::vector<Internal::VulkanInstance::VulkanExtension>();
+        auto requested_extensions = std::vector<Internal::VulkanInstance::VulkanInstanceExtension>();
         {
             auto sdl_extensions = vulkan_instance->get_sdl_extensions();
             requested_extensions.insert(requested_extensions.end(), sdl_extensions.begin(), sdl_extensions.end());
@@ -82,7 +82,7 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
         // TODO: Raytracing extensions
 
         {
-            auto filtered = vulkan_instance->filter_extensions(requested_extensions);
+            auto filtered = vulkan_instance->filter_instance_extensions(requested_extensions);
 
             std::string fatal_message = "Required:\n";
             std::string warn_message = "Optional:\n";
@@ -151,6 +151,59 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
         instance_settings.layers = requested_layers;
 
         vulkan_instance->init_create_instance(instance_settings);
+    }
+
+    // GPU finding
+    {
+        Internal::VulkanInstance::GPUPreferences gpu_preferences;
+
+        // TODO: Features, e.g. line rendering?
+
+        vulkan_instance->init_find_gpu(gpu_preferences);
+    }
+
+    // Device creation
+    {
+        Internal::VulkanInstance::DeviceSettings device_settings;
+
+        // Setup and filter extensions
+        auto requested_extensions = std::vector<Internal::VulkanInstance::VulkanDeviceExtension>();
+        {
+            requested_extensions.emplace_back(VK_KHR_SWAPCHAIN_EXTENSION_NAME, true);
+        }
+
+        {
+            auto filtered = vulkan_instance->filter_device_extensions(requested_extensions);
+
+            std::string fatal_message = "Required:\n";
+            std::string warn_message = "Optional:\n";
+
+            bool missing_required = false;
+            for (auto& layer : filtered.missing) {
+                if (config.debugging.verbose) {
+                    LOG("Missing device extension '" << layer.get_name() << "'");
+                    LOG("\tRequired? " << std::boolalpha << layer.is_required());
+                }
+
+                if (layer.is_required()) {
+                    missing_required = true;
+
+                    fatal_message += "\n";
+                    fatal_message += layer.get_name();
+                } else {
+                    warn_message += "\n";
+                    warn_message += layer.get_name();
+                }
+            }
+
+            if (missing_required) {
+                throw std::runtime_error("Missing device extensions!\n\n" + fatal_message + "\n" + warn_message);
+            }
+        }
+
+        device_settings.extensions = requested_extensions;
+
+        vulkan_instance->init_create_device(device_settings);
     }
 }
 

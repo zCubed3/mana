@@ -22,35 +22,49 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include "vulkan_window.hpp"
+#ifndef MANA_VULKAN_QUEUE_HPP
+#define MANA_VULKAN_QUEUE_HPP
 
 #include <vulkan/vulkan.h>
 
-#include <SDL.h>
-#include <SDL_vulkan.h>
+#include <cstdint>
 
-#include <stdexcept>
+namespace ManaVK::Internal {
+    class VulkanQueue {
+    public:
+        enum class Type {
+            Graphics,
+            Transfer,
+            Present
 
-using namespace ManaVK;
+            // TODO: Compute queue?
+        };
 
-// TODO: Window position?
-Internal::VulkanWindow::VulkanWindow(const std::string &name, int width, int height) {
-    handle = SDL_CreateWindow(
-        name.c_str(),
-        SDL_WINDOWPOS_CENTERED,
-        SDL_WINDOWPOS_CENTERED,
-        width,
-        height,
-        SDL_WINDOW_VULKAN
-    );
+        Type type;
+        uint32_t index;
+        VkQueue vk_queue = nullptr;
+        VkCommandPool vk_cmd_pool = nullptr;
+
+    public:
+        VulkanQueue() = delete;
+        VulkanQueue(Type type, uint32_t index) {
+            this->type = type;
+            this->index = index;
+        }
+
+        void warm_queue(VkInstance vk_instance, VkDevice vk_device);
+
+    public:
+        [[nodiscard]]
+        Type get_type() const {
+            return type;
+        }
+
+        [[nodiscard]]
+        uint32_t get_index() const {
+            return index;
+        }
+    };
 }
 
-void Internal::VulkanWindow::create_surface(VkInstance vk_instance) {
-    if (vk_instance == nullptr) {
-        throw std::runtime_error("vk_instance was nullptr!");
-    }
-
-    if (!SDL_Vulkan_CreateSurface(handle, vk_instance, &vk_surface)) {
-        throw std::runtime_error("SDL_Vulkan_CreateSurface failed!");
-    }
-}
+#endif//MANA_VULKAN_QUEUE_HPP

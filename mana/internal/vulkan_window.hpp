@@ -38,6 +38,19 @@ namespace ManaVK::Internal {
 
     public:
         VulkanWindow(const std::string& name, int width, int height);
+
+        void create_surface(VkInstance vk_instance);
+
+    public:
+        [[nodiscard]]
+        SDL_Window *get_handle() const {
+           return handle;
+        }
+
+        [[nodiscard]]
+        VkSurfaceKHR get_vk_surface() const {
+           return vk_surface;
+        }
     };
 }
 

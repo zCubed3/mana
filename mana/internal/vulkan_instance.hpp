@@ -34,6 +34,7 @@ SOFTWARE.
 
 namespace ManaVK::Internal {
     class VulkanWindow;
+    class VulkanQueue;
 
     class VulkanInstance {
     protected:
@@ -67,8 +68,9 @@ namespace ManaVK::Internal {
         };
 
     public:
-        // Layers are only optional when passed into filter_layers()
-        // At initialization time they're no longer optional!
+        // Aspects are not optional
+        // Their purpose is to help classify data that is filtered!
+
         class VulkanLayer : public VulkanAspect {
         public:
             VulkanLayer() = delete;
@@ -77,11 +79,18 @@ namespace ManaVK::Internal {
             }
         };
 
-        // Extensions are only optional when passed into filter_extensions()
-        class VulkanExtension : public VulkanAspect {
+        class VulkanInstanceExtension : public VulkanAspect {
         public:
-            VulkanExtension() = delete;
-            VulkanExtension(std::string name, bool required) : VulkanAspect(name, required) {
+            VulkanInstanceExtension() = delete;
+            VulkanInstanceExtension(std::string name, bool required) : VulkanAspect(name, required) {
+
+            }
+        };
+
+        class VulkanDeviceExtension : public VulkanAspect {
+        public:
+            VulkanDeviceExtension() = delete;
+            VulkanDeviceExtension(std::string name, bool required) : VulkanAspect(name, required) {
 
             }
         };
@@ -100,8 +109,20 @@ namespace ManaVK::Internal {
             uint32_t app_version = VK_MAKE_VERSION(0, 0, 0);
             uint32_t api_version = VK_API_VERSION_1_0;
 
-            std::vector<VulkanExtension> extensions;
+            std::vector<VulkanInstanceExtension> extensions;
             std::vector<VulkanLayer> layers;
+        };
+
+        struct GPUPreferences {
+            bool need_graphics_queue = true;
+            bool need_transfer_queue = true;
+            bool need_present_queue = true;
+
+            VkPhysicalDeviceFeatures required_features{};
+        };
+
+        struct DeviceSettings {
+            std::vector<VulkanDeviceExtension> extensions;
         };
 
         //
@@ -137,29 +158,31 @@ namespace ManaVK::Internal {
 
         VulkanWindow *main_window = nullptr;
 
+        // TODO: Do we ever need multiple queues of the same type?
+        VulkanQueue* queue_graphics = nullptr;
+        VulkanQueue* queue_transfer = nullptr;
+        VulkanQueue* queue_present = nullptr;
+
     public:
         //
         // Setup stages
         //
         void init_spawn_window(const WindowSettings& settings);
         void init_create_instance(const InstanceSettings& settings);
+        void init_find_gpu(const GPUPreferences& prefs);
+        void init_create_device(const DeviceSettings& settings);
 
         //
         // Filtering functions
         //
         FilterResults<VulkanLayer> filter_layers(const std::vector<VulkanLayer>& list);
-        FilterResults<VulkanExtension> filter_extensions(const std::vector<VulkanExtension>& list);
+        FilterResults<VulkanInstanceExtension> filter_instance_extensions(const std::vector<VulkanInstanceExtension>& list);
+        FilterResults<VulkanDeviceExtension> filter_device_extensions(const std::vector<VulkanDeviceExtension>& list);
 
         //
         // Helpers
         //
-        std::vector<VulkanExtension> get_sdl_extensions();
-
-    protected:
-        //
-        // Instance creation
-        //
-        void create_vk_instance(const InstanceSettings& settings);
+        std::vector<VulkanInstanceExtension> get_sdl_extensions();
     };
 }
 
