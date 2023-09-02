@@ -31,6 +31,7 @@ SOFTWARE.
 #include <string>
 #include <vector>
 #include <functional>
+#include <optional>
 
 namespace ManaVK::Internal {
     class VulkanWindow;
@@ -95,6 +96,52 @@ namespace ManaVK::Internal {
             }
         };
 
+        class VulkanFormat {
+        protected:
+            VkFormat vk_format;
+            VkImageTiling vk_tiling;
+            VkFormatFeatureFlags vk_feature_flags;
+
+        public:
+            VulkanFormat(VkFormat vk_format, VkImageTiling vk_tiling, VkFormatFeatureFlags vk_feature_flags) {
+                this->vk_format = vk_format;
+                this->vk_tiling = vk_tiling;
+                this->vk_feature_flags = vk_feature_flags;
+            }
+
+            [[nodiscard]]
+            VkFormat get_vk_format() const {
+                return vk_format;
+            }
+
+            [[nodiscard]]
+            VkImageTiling get_vk_tiling() const {
+                return vk_tiling;
+            }
+
+            [[nodiscard]]
+            VkFormatFeatureFlags get_vk_feature_flags() const {
+                return vk_feature_flags;
+            }
+        };
+
+        class VulkanSurfaceFormat : public VulkanFormat {
+        protected:
+            VkColorSpaceKHR vk_color_space;
+
+        public:
+            VulkanSurfaceFormat() = delete;
+            VulkanSurfaceFormat(VkFormat vk_format, VkColorSpaceKHR vk_color_space) : VulkanFormat(vk_format, {}, {}) {
+                this->vk_color_space = vk_color_space;
+            }
+
+            [[nodiscard]]
+            VkColorSpaceKHR get_vk_color_space() const {
+                return vk_color_space;
+            }
+        };
+
+    public:
         struct WindowSettings {
             std::string title = "ManaVK Window";
             int width = 1280;
@@ -123,6 +170,16 @@ namespace ManaVK::Internal {
 
         struct DeviceSettings {
             std::vector<VulkanDeviceExtension> extensions;
+        };
+
+        struct PresentSettings {
+            std::vector<VulkanSurfaceFormat> color_formats;
+
+            // If empty, the window has no depth buffering
+            std::vector<VulkanFormat> depth_formats;
+
+            // TODO: VulkanPresentMode required?
+            std::vector<VkPresentModeKHR> vk_present_modes;
         };
 
         //
@@ -155,6 +212,8 @@ namespace ManaVK::Internal {
         VkInstance vk_instance = nullptr;
         VkDevice vk_device = nullptr;
         VkPhysicalDevice vk_gpu = nullptr;
+        VmaAllocator vma_allocator = nullptr;
+        VkDescriptorPool vk_descriptor_pool = nullptr;
 
         VulkanWindow *main_window = nullptr;
 
@@ -162,6 +221,10 @@ namespace ManaVK::Internal {
         VulkanQueue* queue_graphics = nullptr;
         VulkanQueue* queue_transfer = nullptr;
         VulkanQueue* queue_present = nullptr;
+
+        std::optional<VulkanSurfaceFormat> vulkan_color_format;
+        std::optional<VulkanFormat> vulkan_depth_format;
+        VkPresentModeKHR vk_present_mode;
 
     public:
         //
@@ -171,6 +234,7 @@ namespace ManaVK::Internal {
         void init_create_instance(const InstanceSettings& settings);
         void init_find_gpu(const GPUPreferences& prefs);
         void init_create_device(const DeviceSettings& settings);
+        void init_presentation(const PresentSettings& settings);
 
         //
         // Filtering functions
@@ -178,11 +242,47 @@ namespace ManaVK::Internal {
         FilterResults<VulkanLayer> filter_layers(const std::vector<VulkanLayer>& list);
         FilterResults<VulkanInstanceExtension> filter_instance_extensions(const std::vector<VulkanInstanceExtension>& list);
         FilterResults<VulkanDeviceExtension> filter_device_extensions(const std::vector<VulkanDeviceExtension>& list);
+        FilterResults<VulkanFormat> filter_formats(const std::vector<VulkanFormat>& list);
+        FilterResults<VulkanSurfaceFormat> filter_surface_formats(const std::vector<VulkanSurfaceFormat>& list);
+        FilterResults<VkPresentModeKHR> filter_present_modes(const std::vector<VkPresentModeKHR>& list);
 
         //
         // Helpers
         //
         std::vector<VulkanInstanceExtension> get_sdl_extensions();
+
+        //
+        // Getters
+        //
+        [[nodiscard]]
+        VkInstance get_vk_instance() const {
+            return vk_instance;
+        }
+
+        [[nodiscard]]
+        VkDevice get_vk_device() const {
+            return vk_device;
+        }
+
+        [[nodiscard]]
+        VkPhysicalDevice get_vk_gpu() const {
+            return vk_gpu;
+        }
+
+        [[nodiscard]]
+        VulkanQueue *get_queue_graphics() const {
+            return queue_graphics;
+        }
+
+        [[nodiscard]]
+        VulkanQueue *get_queue_present() const {
+            return queue_present;
+        }
+
+        [[nodiscard]]
+        VulkanQueue *get_queue_transfer() const {
+            return queue_transfer;
+        }
     };
 }
 

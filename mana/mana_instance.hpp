@@ -34,6 +34,8 @@ namespace ManaVK::Internal {
 }
 
 namespace ManaVK {
+    class ManaWindow;
+
     // Mana is generic, but tailored towards game usage
     // This means a transfer, graphics, and present queue are all allocated by default
     // Mana will handle creating windows for you
@@ -72,10 +74,17 @@ namespace ManaVK {
             int height = 720;
         };
 
+        struct ManaDisplaySettings {
+            bool vsync = true;
+            bool srgb = false;
+            bool precise_depth = true;
+        };
+
         struct ManaConfig {
             ManaFeatures features;
             ManaDebugging debugging;
             ManaWindowSettings window_settings;
+            ManaDisplaySettings display_settings;
 
             std::string engine_name = "ManaVK Engine";
             ManaVersion engine_version = ManaVersion(1, 0, 0, 0);
@@ -85,10 +94,22 @@ namespace ManaVK {
         };
 
     protected:
-        Internal::VulkanInstance *vulkan_instance = nullptr;
+        std::unique_ptr<Internal::VulkanInstance> vulkan_instance = nullptr;
+
+        std::shared_ptr<ManaWindow> main_window = nullptr;
+        std::vector<std::shared_ptr<ManaWindow>> child_windows;
 
     public:
         ManaInstance(const ManaConfig& config);
+
+    public:
+        //
+        // Getters
+        //
+        [[nodiscard]]
+        std::shared_ptr<ManaWindow> get_main_window() const {
+            return main_window;
+        }
 
     protected:
         //

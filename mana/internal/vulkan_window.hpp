@@ -29,17 +29,53 @@ SOFTWARE.
 #include <vulkan/vulkan.h>
 
 #include <string>
+#include <vector>
+#include <optional>
+#include <memory>
 
 namespace ManaVK::Internal {
+    class VulkanInstance;
+    class VulkanImage;
+
     class VulkanWindow {
+    public:
+        struct SwapchainConfig {
+            VkFormat vk_format_color;
+            VkColorSpaceKHR vk_color_space;
+            VkPresentModeKHR vk_present_mode;
+
+            VkRenderPass vk_render_pass = nullptr;
+
+            std::optional<VkFormat> vk_format_depth;
+        };
+
+        // TODO: Should this not be part of the window?
+        struct VulkanSwapchain {
+            VkSwapchainKHR vk_swapchain = nullptr;
+            std::vector<VkImage> vk_swapchain_images;
+            std::vector<VkImageView> vk_swapchain_views;
+            std::vector<VkFramebuffer> vk_framebuffers;
+
+            std::shared_ptr<VulkanImage> vulkan_depth_image;
+        };
+
     protected:
         SDL_Window *handle = nullptr;
         VkSurfaceKHR vk_surface = nullptr;
+        VkSurfaceCapabilitiesKHR vk_capabilities;
+        VkExtent2D vk_extent;
+
+        // Used for faster recreation of the swapchain (e.g. resizing)
+        SwapchainConfig last_config;
+        std::unique_ptr<VulkanSwapchain> vulkan_swapchain;
 
     public:
         VulkanWindow(const std::string& name, int width, int height);
 
         void create_surface(VkInstance vk_instance);
+        void create_swapchain(VulkanInstance *vulkan_instance, const SwapchainConfig& config);
+
+        void release_swapchain(VkDevice vk_device, std::unique_ptr<VulkanSwapchain> target = nullptr);
 
     public:
         [[nodiscard]]

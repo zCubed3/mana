@@ -22,15 +22,23 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef MANA_RENDER_CONTEXT_HPP
-#define MANA_RENDER_CONTEXT_HPP
+#ifndef MANA_MANA_WINDOW_HPP
+#define MANA_MANA_WINDOW_HPP
+
+namespace ManaVK::Internal {
+    class VulkanWindow;
+}
 
 namespace ManaVK {
-    // Wraps around a ManaWindow or ManaRenderImage
-    // Providing the user with a transparent and seamless way to render to either type of surface
-    class ManaRenderContext {
+    class ManaRTWindow;
+
+    class ManaWindow {
+    protected:
+        ManaRTWindow *render_target;
+
+    public:
+        ManaWindow(Internal::VulkanWindow *vulkan_window);
     };
 }
 
-
-#endif//MANA_RENDER_CONTEXT_HPP
+#endif//MANA_MANA_WINDOW_HPP

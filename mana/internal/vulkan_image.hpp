@@ -22,15 +22,49 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef MANA_RENDER_CONTEXT_HPP
-#define MANA_RENDER_CONTEXT_HPP
+#ifndef MANA_VULKAN_IMAGE_HPP
+#define MANA_VULKAN_IMAGE_HPP
 
-namespace ManaVK {
-    // Wraps around a ManaWindow or ManaRenderImage
-    // Providing the user with a transparent and seamless way to render to either type of surface
-    class ManaRenderContext {
+#include <vulkan/vulkan.h>
+
+namespace ManaVK::Internal {
+    class VulkanImage {
+    public:
+        enum class Shape {
+            Shape1D,
+            Shape2D,
+            Shape3D,
+            ShapeCube
+        };
+
+        struct ImageSettings {
+            VkFormat vk_format;
+            VkExtent3D vk_extent {};
+
+            VkSampleCountFlagBits samples = VK_SAMPLE_COUNT_1_BIT;
+            VkImageUsageFlags vk_usage_flags = 0;
+            VkImageAspectFlags vk_aspect_flags = VK_IMAGE_ASPECT_COLOR_BIT;
+
+            uint32_t array_size = 1;
+            Shape shape = Shape::Shape2D;
+        };
+
+    protected:
+        VkImage vk_image = nullptr;
+        VkImageView vk_view = nullptr;
+
+    public:
+
+        [[nodiscard]]
+        VkImage get_vk_image() const {
+            return vk_image;
+        }
+
+        [[nodiscard]]
+        VkImageView get_vk_view() const {
+            return vk_view;
+        }
     };
 }
 
-
-#endif//MANA_RENDER_CONTEXT_HPP
+#endif//MANA_VULKAN_IMAGE_HPP

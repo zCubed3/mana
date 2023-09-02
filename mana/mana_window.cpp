@@ -22,15 +22,16 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef MANA_RENDER_CONTEXT_HPP
-#define MANA_RENDER_CONTEXT_HPP
+#include "mana_window.hpp"
 
-namespace ManaVK {
-    // Wraps around a ManaWindow or ManaRenderImage
-    // Providing the user with a transparent and seamless way to render to either type of surface
-    class ManaRenderContext {
-    };
+#include <mana/internal/vulkan_window.hpp>
+
+#include <stdexcept>
+
+using namespace ManaVK;
+
+ManaWindow::ManaWindow(Internal::VulkanWindow *vulkan_window) {
+    if (vulkan_window == nullptr) {
+        throw std::runtime_error("vulkan_window was nullptr!");
+    }
 }
-
-
-#endif//MANA_RENDER_CONTEXT_HPP

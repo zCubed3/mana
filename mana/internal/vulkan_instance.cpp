@@ -384,6 +384,92 @@ void VulkanInstance::init_create_device(const VulkanInstance::DeviceSettings &se
     for (auto& queue : gpu_queues) {
         queue->warm_queue(vk_instance, vk_device);
     }
+
+    //
+    // Create our VMA allocator
+    //
+    {
+        VmaAllocatorCreateInfo allocator_create_info = {};
+        allocator_create_info.physicalDevice = vk_gpu;
+        allocator_create_info.device = vk_device;
+        allocator_create_info.instance = vk_instance;
+
+        result = vmaCreateAllocator(&allocator_create_info, &vma_allocator);
+
+        if (result != VK_SUCCESS) {
+            LOG("Error: vkCreateCommandPool failed with error code (" << result << ")");
+            throw std::runtime_error("vkCreateCommandPool failed! Please check the log above for more info!");
+        }
+    }
+
+    //
+    // Then the descriptor pool
+    //
+    {
+        // TODO: Configure these pool sizes better?
+        VkDescriptorPoolSize pool_sizes[] =
+        {
+            {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
+            {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
+            {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
+            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
+            {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
+            {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
+            {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
+            {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}
+        };
+
+        VkDescriptorPoolCreateInfo create_info {};
+        create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+        create_info.poolSizeCount = 11;
+        create_info.pPoolSizes = pool_sizes;
+        create_info.maxSets = 1000;
+        create_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+
+        result = vkCreateDescriptorPool(vk_device, &create_info, nullptr, &vk_descriptor_pool);
+
+        if (result != VK_SUCCESS) {
+            LOG("Error: vkCreateDescriptorPool failed with error code (" << result << ")");
+            throw std::runtime_error("vkCreateDescriptorPool failed! Please check the log above for more info!");
+        }
+    }
+}
+
+void VulkanInstance::init_presentation(const VulkanInstance::PresentSettings &settings) {
+	// TODO: Use the fallbacks?
+    vulkan_color_format = settings.color_formats.back();
+	vk_present_mode = settings.vk_present_modes.back();
+
+    if (!settings.depth_formats.empty()) {
+        vulkan_depth_format = settings.depth_formats.back();
+    }
+
+    //
+    // Window render pass creation
+    //
+    {
+		VulkanRenderPassBuilder
+    }
+
+    //
+    // Window swapchain creation
+    //
+    {
+        VulkanWindow::SwapchainConfig config;
+
+        config.vk_format_color = vulkan_color_format->get_vk_format();
+        config.vk_color_space = vulkan_color_format->get_vk_color_space();
+        config.vk_present_mode = vk_present_mode;
+
+        if (vulkan_depth_format) {
+            config.vk_format_depth = vulkan_depth_format->get_vk_format();
+        }
+
+        main_window->create_swapchain(this, config);
+    }
 }
 
 //
@@ -427,17 +513,17 @@ VulkanInstance::FilterResults<VulkanInstance::VulkanInstanceExtension>
     vkEnumerateInstanceExtensionProperties(nullptr, &extension_count, supported_extensions.data());
 
     return filter<VulkanInstanceExtension>(
-            list,
-            [supported_extensions]
-            (VulkanInstance *p_instance, const VulkanInstanceExtension& extension) -> bool {
-                for (const auto& supported : supported_extensions) {
-                    if (strcmp(supported.extensionName, extension.get_name().c_str()) == 0) {
-                        return true;
-                    }
-                }
+    	list,
+    	[supported_extensions]
+    	(VulkanInstance *p_instance, const VulkanInstanceExtension& extension) -> bool {
+    	    for (const auto& supported : supported_extensions) {
+    	        if (strcmp(supported.extensionName, extension.get_name().c_str()) == 0) {
+    	            return true;
+    	        }
+    	    }
 
-                return false;
-            }
+    	    return false;
+    	}
     );
 }
 
@@ -458,17 +544,125 @@ VulkanInstance::FilterResults<VulkanInstance::VulkanDeviceExtension>
     vkEnumerateDeviceExtensionProperties(vk_gpu, nullptr, &extension_count, supported_extensions.data());
 
     return filter<VulkanDeviceExtension>(
-            list,
-            [supported_extensions]
-            (VulkanInstance *p_instance, const VulkanDeviceExtension& extension) -> bool {
-                for (const auto& supported : supported_extensions) {
-                    if (strcmp(supported.extensionName, extension.get_name().c_str()) == 0) {
-                        return true;
-                    }
-                }
+   		list,
+   		[supported_extensions]
+   		(VulkanInstance *p_instance, const VulkanDeviceExtension& extension) -> bool {
+   		    for (const auto& supported : supported_extensions) {
+   		        if (strcmp(supported.extensionName, extension.get_name().c_str()) == 0) {
+   		            return true;
+   		        }
+   		    }
 
-                return false;
-            }
+   		    return false;
+   		}
+    );
+}
+
+VulkanInstance::FilterResults<VulkanInstance::VulkanFormat>
+	VulkanInstance::filter_formats(const std::vector<VulkanFormat> &list)
+{
+    return filter<VulkanFormat>(
+    	list,
+    	[]
+    	(VulkanInstance *p_instance, const VulkanFormat& format) -> bool {
+        	VkFormatProperties vk_format_properties;
+        	vkGetPhysicalDeviceFormatProperties(p_instance->vk_gpu, format.get_vk_format(), &vk_format_properties);
+
+            VkImageTiling vk_tiling = format.get_vk_tiling();
+            VkFormatFeatureFlags vk_feature_flags = format.get_vk_feature_flags();
+
+        	if (vk_tiling == VK_IMAGE_TILING_LINEAR
+                && (vk_format_properties.linearTilingFeatures & vk_feature_flags) == vk_feature_flags)
+            {
+        	    return true;
+        	}
+
+        	if (vk_tiling == VK_IMAGE_TILING_OPTIMAL
+                && (vk_format_properties.optimalTilingFeatures & vk_feature_flags) == vk_feature_flags)
+            {
+        	    return true;
+        	}
+
+    	    return false;
+    	}
+    );
+}
+
+VulkanInstance::FilterResults<VulkanInstance::VulkanSurfaceFormat>
+    VulkanInstance::filter_surface_formats(const std::vector<VulkanSurfaceFormat> &list)
+{
+    if (vk_gpu == nullptr) {
+        throw std::runtime_error("vk_gpu was nullptr! Have you called init_find_gpu() beforehand?");
+    }
+
+    if (main_window == nullptr) {
+        throw std::runtime_error("Main window was nullptr! VulkanInstance can't function without an active main window!");
+    }
+
+    if (main_window->get_vk_surface() == nullptr) {
+        throw std::runtime_error("The main window's VkSurface was nullptr! Was it somehow released early?");
+    }
+
+    // Query all the instance extensions first
+    std::vector<VkSurfaceFormatKHR> supported_formats;
+    uint32_t format_count = 0;
+
+    // TODO: Query with layer names too?
+    vkGetPhysicalDeviceSurfaceFormatsKHR(vk_gpu, main_window->get_vk_surface(), &format_count, nullptr);
+    supported_formats.resize(format_count);
+    vkGetPhysicalDeviceSurfaceFormatsKHR(vk_gpu, main_window->get_vk_surface(), &format_count, supported_formats.data());
+
+    return filter<VulkanSurfaceFormat>(
+   		list,
+   		[supported_formats]
+   		(VulkanInstance *p_instance, const VulkanSurfaceFormat& format) -> bool {
+   		    for (const auto& supported : supported_formats) {
+                if (supported.format == format.get_vk_format() && supported.colorSpace == format.get_vk_color_space()) {
+                    return true;
+                }
+   		    }
+
+   		    return false;
+   		}
+    );
+}
+
+VulkanInstance::FilterResults<VkPresentModeKHR>
+    VulkanInstance::filter_present_modes(const std::vector<VkPresentModeKHR> &list)
+{
+    if (vk_gpu == nullptr) {
+        throw std::runtime_error("vk_gpu was nullptr! Have you called init_find_gpu() beforehand?");
+    }
+
+    if (main_window == nullptr) {
+        throw std::runtime_error("Main window was nullptr! VulkanInstance can't function without an active main window!");
+    }
+
+    if (main_window->get_vk_surface() == nullptr) {
+        throw std::runtime_error("The main window's VkSurface was nullptr! Was it somehow released early?");
+    }
+
+    // Query all the instance extensions first
+    std::vector<VkPresentModeKHR> supported_modes;
+    uint32_t format_count = 0;
+
+    // TODO: Query with layer names too?
+    vkGetPhysicalDeviceSurfacePresentModesKHR(vk_gpu, main_window->get_vk_surface(), &format_count, nullptr);
+    supported_modes.resize(format_count);
+    vkGetPhysicalDeviceSurfacePresentModesKHR(vk_gpu, main_window->get_vk_surface(), &format_count, supported_modes.data());
+
+    return filter<VkPresentModeKHR>(
+   		list,
+   		[supported_modes]
+   		(VulkanInstance *p_instance, const VkPresentModeKHR& mode) -> bool {
+   		    for (const auto& supported : supported_modes) {
+                if (supported == mode) {
+                    return true;
+                }
+   		    }
+
+   		    return false;
+   		}
     );
 }
 

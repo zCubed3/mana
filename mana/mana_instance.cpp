@@ -26,6 +26,10 @@ SOFTWARE.
 
 #include <mana/internal/vulkan_instance.hpp>
 
+#include <mana/mana_window.hpp>
+
+#include <vulkan/vk_enum_string_helper.h>
+
 #include <iostream>
 
 using namespace ManaVK;
@@ -37,7 +41,7 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
     //
     // VulkanInstance bootstrapping
     //
-    vulkan_instance = new Internal::VulkanInstance();
+    vulkan_instance = std::make_unique<Internal::VulkanInstance>();
 
     // Window creation
     {
@@ -108,6 +112,8 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             if (missing_required) {
                 throw std::runtime_error("Missing vulkan instance extensions!\n\n" + fatal_message + "\n" + warn_message);
             }
+
+            instance_settings.extensions = filtered.found;
         }
 
         // Setup and validate layers
@@ -145,10 +151,9 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             if (missing_required) {
                 throw std::runtime_error("Missing vulkan instance layer!\n\n" + fatal_message + "\n" + warn_message);
             }
-        }
 
-        instance_settings.extensions = requested_extensions;
-        instance_settings.layers = requested_layers;
+            instance_settings.layers = filtered.found;
+        }
 
         vulkan_instance->init_create_instance(instance_settings);
     }
@@ -199,12 +204,128 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             if (missing_required) {
                 throw std::runtime_error("Missing device extensions!\n\n" + fatal_message + "\n" + warn_message);
             }
-        }
 
-        device_settings.extensions = requested_extensions;
+            device_settings.extensions = filtered.found;
+        }
 
         vulkan_instance->init_create_device(device_settings);
     }
+
+    // Presentation initialization
+    {
+        Internal::VulkanInstance::PresentSettings present_settings;
+
+        //
+        // Find our preferred color formats
+        //
+
+        // Color formats
+        // TODO: HDR? BGR? etc...
+        std::vector<Internal::VulkanInstance::VulkanSurfaceFormat> requested_color_formats;
+        {
+            if (config.display_settings.srgb) {
+                requested_color_formats.emplace_back(VK_FORMAT_B8G8R8A8_SRGB, VK_COLORSPACE_SRGB_NONLINEAR_KHR);
+            } else {
+                requested_color_formats.emplace_back(VK_FORMAT_B8G8R8A8_UNORM, VK_COLORSPACE_SRGB_NONLINEAR_KHR);
+            }
+        }
+
+        {
+            auto filtered = vulkan_instance->filter_surface_formats(requested_color_formats);
+
+            for (auto& format : filtered.missing) {
+                if (config.debugging.verbose) {
+                    LOG(
+                        "Warning: Missing surface format '"
+                        << string_VkFormat(format.get_vk_format())
+                        << "' with colorspace '"
+                        << string_VkColorSpaceKHR(format.get_vk_color_space())
+                        << "'"
+                    );
+                }
+            }
+
+            if (filtered.found.empty()) {
+                throw std::runtime_error("No supported surface formats found! This is a rare error and could indicate a driver problem / exotic hardware");
+            }
+
+            present_settings.color_formats = filtered.found;
+        }
+
+        // Depth formats
+        std::vector<Internal::VulkanInstance::VulkanFormat> requested_depth_formats;
+        {
+            if (config.display_settings.precise_depth) {
+                requested_depth_formats.emplace_back(VK_FORMAT_D32_SFLOAT_S8_UINT, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            }
+
+            // Fallback even if precise depth doesn't exist
+            // e.g. on iGPUs
+            requested_depth_formats.emplace_back(VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+            requested_depth_formats.emplace_back(VK_FORMAT_D16_UNORM_S8_UINT, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
+
+        }
+
+        {
+            auto filtered = vulkan_instance->filter_formats(requested_depth_formats);
+
+            for (auto& format : filtered.missing) {
+                if (config.debugging.verbose) {
+                    LOG(
+                        "Warning: Missing format '"
+                        << string_VkFormat(format.get_vk_format())
+                        << "'"
+                    );
+                }
+            }
+
+            if (filtered.found.empty()) {
+                throw std::runtime_error("No supported depth formats! This is a rare error and could indicate a driver problem / exotic hardware");
+            }
+
+            present_settings.depth_formats = filtered.found;
+        }
+
+        // Present modes
+        std::vector<VkPresentModeKHR> requested_modes;
+        {
+            if (config.display_settings.vsync) {
+                requested_modes.push_back(VK_PRESENT_MODE_FIFO_KHR);
+                requested_modes.push_back(VK_PRESENT_MODE_FIFO_RELAXED_KHR);
+            }
+
+            // Fallback modes we always have!
+            // TODO: Be more particular about missing modes?
+            requested_modes.push_back(VK_PRESENT_MODE_MAILBOX_KHR);
+            requested_modes.push_back(VK_PRESENT_MODE_IMMEDIATE_KHR);
+        }
+
+        {
+            auto filtered = vulkan_instance->filter_present_modes(requested_modes);
+
+            for (auto& mode : filtered.missing) {
+                if (config.debugging.verbose) {
+                    LOG("Warning: Missing present mode '" << string_VkPresentModeKHR(mode) << "'");
+                }
+            }
+
+            if (filtered.found.empty()) {
+                throw std::runtime_error("No supported present modes found! This is a rare error and could indicate a driver problem / exotic hardware");
+            }
+
+            present_settings.vk_present_modes = filtered.found;
+        }
+
+        // TODO: High precision / low precision color settings
+
+        // Init
+        vulkan_instance->init_presentation(present_settings);
+    }
+
+    //
+    // Post-bootstrap
+    //
+    main_window = std::make_shared<ManaWindow>(vulkan_instance->main_window);
 }
 
 //
