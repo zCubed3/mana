@@ -32,10 +32,12 @@ SOFTWARE.
 #include <vector>
 #include <functional>
 #include <optional>
+#include <memory>
 
 namespace ManaVK::Internal {
     class VulkanWindow;
     class VulkanQueue;
+    class VulkanRenderPass;
 
     class VulkanInstance {
     protected:
@@ -178,8 +180,12 @@ namespace ManaVK::Internal {
             // If empty, the window has no depth buffering
             std::vector<VulkanFormat> depth_formats;
 
-            // TODO: VulkanPresentMode required?
             std::vector<VkPresentModeKHR> vk_present_modes;
+
+            // The user must create their own render pass at this point
+            // This is because an engine might use either deferred or forward rendering!
+            // Or some exotic pipelines like Forward+, Deferred+, etc...
+            std::shared_ptr<VulkanRenderPass> vulkan_render_pass = nullptr;
         };
 
         //
@@ -224,7 +230,7 @@ namespace ManaVK::Internal {
 
         std::optional<VulkanSurfaceFormat> vulkan_color_format;
         std::optional<VulkanFormat> vulkan_depth_format;
-        VkPresentModeKHR vk_present_mode;
+        VkPresentModeKHR vk_present_mode = VK_PRESENT_MODE_MAX_ENUM_KHR;
 
     public:
         //

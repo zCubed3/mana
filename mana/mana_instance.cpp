@@ -60,10 +60,10 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
 
         instance_settings.engine_name = config.engine_name;
         instance_settings.engine_version = VK_MAKE_API_VERSION(
-            config.app_version.rev,
-            config.app_version.major,
-            config.app_version.minor,
-            config.app_version.patch
+            config.engine_version.rev,
+            config.engine_version.major,
+            config.engine_version.minor,
+            config.engine_version.patch
         );
 
         instance_settings.app_name = config.app_name;
@@ -317,6 +317,12 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
         }
 
         // TODO: High precision / low precision color settings
+        // TODO: Let the user decide how the screen is presented to
+
+        // Render pass
+        {
+
+        }
 
         // Init
         vulkan_instance->init_presentation(present_settings);

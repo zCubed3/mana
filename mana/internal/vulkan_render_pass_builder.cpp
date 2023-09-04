@@ -26,7 +26,23 @@ SOFTWARE.
 
 #include <mana/internal/vulkan_render_pass.hpp>
 
+#include <vulkan/vk_enum_string_helper.h>
+
+#include <stdexcept>
+#include <iostream>
+
 using namespace ManaVK;
+
+#define LOG_INLINE(args) std::cout << "[ManaVK::Internal::VulkanRenderPassBuilder]: "<< args
+#define LOG(args) LOG_INLINE(args) << std::endl
+
+void Internal::VulkanRenderPassBuilder::push_subpass(const SubpassInfo &info) {
+    subpasses.emplace_back(info);
+}
+
+void Internal::VulkanRenderPassBuilder::push_dependency(const SubpassDependency &dependency) {
+    dependencies.emplace_back(dependency);
+}
 
 void Internal::VulkanRenderPassBuilder::push_color_attachment(const AttachmentInfo &info) {
     color_attachments.emplace_back(decompose_attachment(info));
@@ -36,7 +52,11 @@ void Internal::VulkanRenderPassBuilder::set_depth_attachment(const AttachmentInf
     depth_attachment = decompose_attachment(info);
 }
 
-std::shared_ptr<Internal::VulkanRenderPass> Internal::VulkanRenderPassBuilder::build() {
+std::shared_ptr<Internal::VulkanRenderPass> Internal::VulkanRenderPassBuilder::build(VkDevice vk_device) {
+    if (vk_device == nullptr) {
+        throw std::runtime_error("vk_device was nullptr!");
+    }
+
     //
     // Reference building
     //
@@ -98,26 +118,44 @@ std::shared_ptr<Internal::VulkanRenderPass> Internal::VulkanRenderPassBuilder::b
 
         for (const auto& subpass : subpasses) {
             VkSubpassDescription vk_subpass{};
+            {
+                vk_subpass.pipelineBindPoint = subpass.vk_bind_point;
 
-            vk_subpass.pipelineBindPoint = subpass.vk_bind_point;
+                vk_subpass.colorAttachmentCount = subpass.output_indices.size();
+                vk_subpass.pColorAttachments = jagged_outputs[index].get();
 
-            vk_subpass.colorAttachmentCount = subpass.output_indices.size();
-            vk_subpass.pColorAttachments = jagged_outputs[index].get();
+                vk_subpass.inputAttachmentCount = subpass.input_indices.size();
+                vk_subpass.pInputAttachments = jagged_inputs[index].get();
 
-            vk_subpass.inputAttachmentCount = subpass.input_indices.size();
-            vk_subpass.pInputAttachments = jagged_inputs[index].get();
-
-            if (subpass.depth_index.has_value()) {
-                vk_subpass.pDepthStencilAttachment = vk_attachment_refs.data() + subpass.depth_index.value();
+                if (subpass.depth_index.has_value()) {
+                    vk_subpass.pDepthStencilAttachment = vk_attachment_refs.data() + subpass.depth_index.value();
+                }
             }
 
             index++;
+            vk_subpasses.emplace_back(vk_subpass);
         }
     }
 
-    std::vector<VkSubpassDependency> vk_subpass_dependencies;
+    std::vector<VkSubpassDependency> vk_dependencies;
     {
+        for (const auto& dependency : dependencies) {
+            VkSubpassDependency vk_dependency{};
+            {
+                vk_dependency.dependencyFlags = dependency.vk_dependency_flags;
 
+                vk_dependency.srcAccessMask = dependency.vk_access_flags_src;
+                vk_dependency.dstAccessMask = dependency.vk_access_flags_dst;
+
+                vk_dependency.srcStageMask = dependency.vk_stage_flags_src;
+                vk_dependency.dstStageMask = dependency.vk_stage_flags_dst;
+
+                vk_dependency.srcSubpass = dependency.src_subpass;
+                vk_dependency.dstSubpass = dependency.dst_subpass;
+            }
+
+            vk_dependencies.emplace_back(vk_dependency);
+        }
     }
 
     //
@@ -133,11 +171,19 @@ std::shared_ptr<Internal::VulkanRenderPass> Internal::VulkanRenderPassBuilder::b
         render_pass_create_info.subpassCount = static_cast<uint32_t>(vk_subpasses.size());
         render_pass_create_info.pSubpasses = vk_subpasses.data();
 
-        render_pass_create_info.dependencyCount = static_cast<uint32_t>(vk_subpass_dependencies.size());
-        render_pass_create_info.pDependencies = vk_subpass_dependencies.data();
-
-        VkRenderPassBeginInfo info;
+        render_pass_create_info.dependencyCount = static_cast<uint32_t>(vk_dependencies.size());
+        render_pass_create_info.pDependencies = vk_dependencies.data();
     }
+
+    VkRenderPass vk_render_pass = nullptr;
+    VkResult result = vkCreateRenderPass(vk_device, &render_pass_create_info, nullptr, &vk_render_pass);
+
+    if (result != VK_SUCCESS) {
+        LOG("vkCreateRenderPass failed with error code (" << string_VkResult(result) << ")");
+        throw std::runtime_error("vkCreateRenderPass failed! Please check the log above for more info!");
+    }
+
+    return std::make_shared<VulkanRenderPass>(vk_render_pass);
 }
 
 //

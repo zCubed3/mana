@@ -29,6 +29,8 @@ SOFTWARE.
 
 #include <SDL_vulkan.h>
 
+#include <mana/internal/vulkan_render_pass.hpp>
+#include <mana/internal/vulkan_render_pass_builder.hpp>
 #include <mana/internal/vulkan_queue.hpp>
 #include <mana/internal/vulkan_window.hpp>
 
@@ -447,11 +449,8 @@ void VulkanInstance::init_presentation(const VulkanInstance::PresentSettings &se
         vulkan_depth_format = settings.depth_formats.back();
     }
 
-    //
-    // Window render pass creation
-    //
-    {
-		VulkanRenderPassBuilder
+    if (settings.vulkan_render_pass == nullptr) {
+        throw std::runtime_error("A valid render pass must be created and passed PresentSettings!");
     }
 
     //
@@ -467,6 +466,8 @@ void VulkanInstance::init_presentation(const VulkanInstance::PresentSettings &se
         if (vulkan_depth_format) {
             config.vk_format_depth = vulkan_depth_format->get_vk_format();
         }
+
+        config.vk_render_pass = settings.vulkan_render_pass->get_vk_render_pass();
 
         main_window->create_swapchain(this, config);
     }

@@ -86,6 +86,7 @@ namespace ManaVK::Internal {
         std::optional<Attachment> depth_attachment;
 
         std::vector<SubpassInfo> subpasses;
+        std::vector<SubpassDependency> dependencies;
 
     public:
         //
@@ -97,7 +98,7 @@ namespace ManaVK::Internal {
         void push_color_attachment(const AttachmentInfo &info);
         void set_depth_attachment(const AttachmentInfo &info);
 
-        std::shared_ptr<VulkanRenderPass> build();
+        std::shared_ptr<VulkanRenderPass> build(VkDevice vk_device);
 
     protected:
         //

@@ -25,8 +25,22 @@ SOFTWARE.
 #ifndef MANA_VULKAN_RENDER_PASS_HPP
 #define MANA_VULKAN_RENDER_PASS_HPP
 
+#include <vulkan/vulkan.h>
+
 namespace ManaVK::Internal {
     class VulkanRenderPass {
+    protected:
+        VkRenderPass vk_render_pass = nullptr;
+
+    public:
+        VulkanRenderPass(VkRenderPass vk_render_pass) {
+            this->vk_render_pass = vk_render_pass;
+        }
+
+        [[nodiscard]]
+        VkRenderPass get_vk_render_pass() const {
+            return vk_render_pass;
+        }
     };
 }
 

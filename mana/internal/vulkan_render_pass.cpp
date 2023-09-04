@@ -23,3 +23,5 @@ SOFTWARE.
 */
 
 #include "vulkan_render_pass.hpp"
+
+using namespace ManaVK;

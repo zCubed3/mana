@@ -23,8 +23,12 @@ set(MANA_SOURCES
     "mana/internal/vulkan_render_pass_builder.cpp"
     "mana/internal/vulkan_render_pass.cpp"
 
+    "mana/builders/mana_render_pass_builder.cpp"
+
     "mana/mana_instance.cpp"
     "mana/mana_window.cpp"
+    "mana/mana_enums.cpp"
+    "mana/mana_image.cpp"
 )
 
 add_library(Mana STATIC ${MANA_SOURCES})
