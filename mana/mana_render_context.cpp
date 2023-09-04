@@ -23,3 +23,21 @@ SOFTWARE.
 */
 
 #include "mana_render_context.hpp"
+
+#include <mana/mana_window.hpp>
+
+#include <stdexcept>
+
+using namespace ManaVK;
+
+void ManaRenderContext::new_window_frame(ManaWindow *window, ManaInstance *instance) {
+    if (window == nullptr) {
+        throw std::runtime_error("window was nullptr!");
+    }
+
+    if (instance == nullptr) {
+        throw std::runtime_error("instance was nullptr!");
+    }
+
+    auto vulkan_window = window->get_vulkan_window();
+}

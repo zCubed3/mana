@@ -24,6 +24,8 @@ SOFTWARE.
 
 #include "mana_enums.hpp"
 
+#include <mana/mana_instance.hpp>
+
 #include <vulkan/vulkan.h>
 
 int ManaVK::mana_color_format_to_vk_format(ManaVK::ManaColorFormat format) {

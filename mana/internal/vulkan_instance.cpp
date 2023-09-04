@@ -450,7 +450,7 @@ void VulkanInstance::init_presentation(const VulkanInstance::PresentSettings &se
     }
 
     if (settings.vulkan_render_pass == nullptr) {
-        throw std::runtime_error("A valid render pass must be created and passed PresentSettings!");
+        throw std::runtime_error("A valid render pass must be created and passed into PresentSettings!");
     }
 
     //
@@ -463,9 +463,11 @@ void VulkanInstance::init_presentation(const VulkanInstance::PresentSettings &se
         config.vk_color_space = vulkan_color_format->get_vk_color_space();
         config.vk_present_mode = vk_present_mode;
 
-        if (vulkan_depth_format) {
-            config.vk_format_depth = vulkan_depth_format->get_vk_format();
-        }
+        // TODO: Fix depth buffers
+        // TODO: Implement VulkanImage
+        //if (vulkan_depth_format) {
+        //    config.vk_format_depth = vulkan_depth_format->get_vk_format();
+        //}
 
         config.vk_render_pass = settings.vulkan_render_pass->get_vk_render_pass();
 

@@ -25,19 +25,34 @@ SOFTWARE.
 #ifndef MANA_MANA_WINDOW_HPP
 #define MANA_MANA_WINDOW_HPP
 
+#include <memory>
+
 namespace ManaVK::Internal {
     class VulkanWindow;
 }
 
 namespace ManaVK {
-    class ManaRTWindow;
+    class ManaRenderContext;
+    class ManaInstance;
 
     class ManaWindow {
     protected:
-        ManaRTWindow *render_target;
+        std::shared_ptr<ManaRenderContext> context;
+        ManaInstance *owner = nullptr;
+        Internal::VulkanWindow *vulkan_window = nullptr;
 
     public:
-        ManaWindow(Internal::VulkanWindow *vulkan_window);
+        ManaWindow(Internal::VulkanWindow *vulkan_window, ManaInstance *owner);
+
+        std::shared_ptr<ManaRenderContext> begin_rendering();
+
+        //
+        // Getters
+        //
+        [[nodiscard]]
+        Internal::VulkanWindow *get_vulkan_window() const {
+            return vulkan_window;
+        }
     };
 }
 

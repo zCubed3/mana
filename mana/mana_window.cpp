@@ -28,10 +28,16 @@ SOFTWARE.
 
 #include <stdexcept>
 
+#include <mana/mana_render_context.hpp>
+
 using namespace ManaVK;
 
-ManaWindow::ManaWindow(Internal::VulkanWindow *vulkan_window) {
-    if (vulkan_window == nullptr) {
-        throw std::runtime_error("vulkan_window was nullptr!");
-    }
+ManaWindow::ManaWindow(Internal::VulkanWindow *vulkan_window, ManaInstance *owner) {
+    this->vulkan_window = vulkan_window;
+    this->owner = owner;
+}
+
+std::shared_ptr<ManaRenderContext> ManaWindow::begin_rendering() {
+    context->new_frame(this, owner);
+    return context;
 }

@@ -24,4 +24,16 @@ SOFTWARE.
 
 #include "vulkan_render_pass.hpp"
 
-using namespace ManaVK;
+#include <stdexcept>
+
+using namespace ManaVK::Internal;
+
+void VulkanRenderPass::release(VkDevice vk_device) {
+    if (vk_render_pass != nullptr) {
+        if (vk_device == nullptr) {
+            throw std::runtime_error("vk_device was nullptr!");
+        }
+
+        vkDestroyRenderPass(vk_device, vk_render_pass, nullptr);
+    }
+}

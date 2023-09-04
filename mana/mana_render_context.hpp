@@ -25,10 +25,20 @@ SOFTWARE.
 #ifndef MANA_RENDER_CONTEXT_HPP
 #define MANA_RENDER_CONTEXT_HPP
 
+#include <mana/mana_enums.hpp>
+
 namespace ManaVK {
+    class ManaInstance;
+    class ManaWindow;
+
     // Wraps around a ManaWindow or ManaRenderImage
     // Providing the user with a transparent and seamless way to render to either type of surface
     class ManaRenderContext {
+    protected:
+
+
+    public:
+        void new_window_frame(ManaWindow *window, ManaInstance *instance);
     };
 }
 

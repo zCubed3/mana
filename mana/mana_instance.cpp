@@ -26,6 +26,8 @@ SOFTWARE.
 
 #include <mana/internal/vulkan_instance.hpp>
 
+#include <mana/mana_pipeline.hpp>
+#include <mana/mana_render_pass.hpp>
 #include <mana/mana_window.hpp>
 
 #include <vulkan/vk_enum_string_helper.h>
@@ -250,6 +252,9 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             }
 
             present_settings.color_formats = filtered.found;
+
+            // TODO: No more jank!
+            vk_format_default_color = present_settings.color_formats.back().get_vk_format();
         }
 
         // Depth formats
@@ -263,7 +268,6 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             // e.g. on iGPUs
             requested_depth_formats.emplace_back(VK_FORMAT_D24_UNORM_S8_UINT, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
             requested_depth_formats.emplace_back(VK_FORMAT_D16_UNORM_S8_UINT, VK_IMAGE_TILING_OPTIMAL, VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT);
-
         }
 
         {
@@ -284,6 +288,9 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             }
 
             present_settings.depth_formats = filtered.found;
+
+            // TODO: No more jank!
+            vk_format_default_depth = present_settings.depth_formats.back().get_vk_format();
         }
 
         // Present modes
@@ -317,14 +324,21 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
         }
 
         // TODO: High precision / low precision color settings
-        // TODO: Let the user decide how the screen is presented to
+        // TODO: Expose more defaults
 
-        // Render pass
+        //
+        // Pipeline building
+        //
+        this->mana_pipeline = config.mana_pipeline;
+
         {
-
+            auto render_pass = mana_pipeline->build_render_pass(this);
+            present_settings.vulkan_render_pass = render_pass->get_vulkan_render_pass();
         }
 
+        //
         // Init
+        //
         vulkan_instance->init_presentation(present_settings);
     }
 
@@ -332,6 +346,42 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
     // Post-bootstrap
     //
     main_window = std::make_shared<ManaWindow>(vulkan_instance->main_window);
+}
+
+//
+// Methods
+//
+void ManaInstance::flush() {
+    for (auto& func : release_queue) {
+        func(this);
+    }
+}
+
+void ManaInstance::enqueue_release(const std::function<void(ManaInstance *)> &func) {
+    release_queue.emplace_back(func);
+}
+
+//
+// Getters
+//
+int ManaInstance::get_vk_color_format(ManaVK::ManaColorFormat format) const {
+    switch (format) {
+        default:
+            return mana_color_format_to_vk_format(format);
+
+        case ManaColorFormat::Default:
+            return vk_format_default_color;
+    }
+}
+
+int ManaInstance::get_vk_depth_format(ManaVK::ManaDepthFormat format) const {
+    switch (format) {
+        default:
+            return mana_depth_format_to_vk_format(format);
+
+        case ManaDepthFormat::Default:
+            return vk_format_default_depth;
+    }
 }
 
 //

@@ -54,6 +54,7 @@ namespace ManaVK::Internal {
         VkImageView vk_view = nullptr;
 
     public:
+        VulkanImage(const ImageSettings& settings);
 
         [[nodiscard]]
         VkImage get_vk_image() const {

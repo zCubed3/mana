@@ -23,3 +23,9 @@ SOFTWARE.
 */
 
 #include "vulkan_image.hpp"
+
+using namespace ManaVK::Internal;
+
+VulkanImage::VulkanImage(const ImageSettings &settings) {
+
+}

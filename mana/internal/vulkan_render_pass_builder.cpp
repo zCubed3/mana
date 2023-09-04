@@ -57,6 +57,10 @@ std::shared_ptr<Internal::VulkanRenderPass> Internal::VulkanRenderPassBuilder::b
         throw std::runtime_error("vk_device was nullptr!");
     }
 
+    if (subpasses.empty()) {
+        throw std::runtime_error("subpasses was empty, this is not allowed!");
+    }
+
     //
     // Reference building
     //

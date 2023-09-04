@@ -29,6 +29,9 @@ set(MANA_SOURCES
     "mana/mana_window.cpp"
     "mana/mana_enums.cpp"
     "mana/mana_image.cpp"
+    "mana/mana_pipeline.cpp"
+    "mana/mana_render_context.cpp"
+    "mana/mana_render_pass.cpp"
 )
 
 add_library(Mana STATIC ${MANA_SOURCES})

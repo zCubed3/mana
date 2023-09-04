@@ -41,6 +41,8 @@ namespace ManaVK::Internal {
         VkRenderPass get_vk_render_pass() const {
             return vk_render_pass;
         }
+
+        void release(VkDevice vk_device);
     };
 }
 

@@ -92,9 +92,8 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
         SDL_Vulkan_GetDrawableSize(handle, &width, &height);
 
         VkExtent2D actual_extent = {
-            static_cast<uint32_t>(width),
-            static_cast<uint32_t>(height)
-        };
+                static_cast<uint32_t>(width),
+                static_cast<uint32_t>(height)};
 
         actual_extent.width = std::min(std::max(actual_extent.width, vk_capabilities.minImageExtent.width), vk_capabilities.maxImageExtent.width);
         actual_extent.height = std::min(std::max(actual_extent.height, vk_capabilities.minImageExtent.height), vk_capabilities.maxImageExtent.height);
@@ -140,9 +139,8 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
         VulkanQueue *queue_present = vulkan_instance->get_queue_present();
 
         std::vector<uint32_t> device_queues = {
-            queue_graphics->get_index(),
-            queue_present->get_index()
-        };
+                queue_graphics->get_index(),
+                queue_present->get_index()};
 
         if (queue_graphics->get_index() != queue_present->get_index()) {
             create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -169,13 +167,56 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
         Internal::VulkanImage::ImageSettings image_settings;
 
         image_settings.vk_format = config.vk_format_depth.value();
-        image_settings.vk_extent = { vk_extent.width, vk_extent.height, 1 };
+        image_settings.vk_extent = {vk_extent.width, vk_extent.height, 1};
 
         // TODO: Optional stenciling?
         image_settings.vk_usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         image_settings.vk_aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
-        new_swapchain->vulkan_depth_image = std::make_shared<VulkanImage>();
+        // TODO: Implement VulkaImage!
+        //new_swapchain->vulkan_depth_image = std::make_shared<VulkanImage>();
+    }
+
+    //
+    // Swapchain image fetching
+    //
+    {
+        vkGetSwapchainImagesKHR(vulkan_instance->get_vk_device(), new_swapchain->vk_swapchain, &image_count, nullptr);
+        new_swapchain->vk_swapchain_images.resize(image_count);
+        vkGetSwapchainImagesKHR(vulkan_instance->get_vk_device(), new_swapchain->vk_swapchain, &image_count, new_swapchain->vk_swapchain_images.data());
+    }
+
+    //
+    // Creating views
+    //
+    {
+        new_swapchain->vk_swapchain_views.resize(image_count);
+        for (uint32_t i = 0; i < image_count; i++) {
+            VkImageViewCreateInfo view_create_info{};
+            view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+
+            view_create_info.image = new_swapchain->vk_swapchain_images[i];
+            view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            view_create_info.format = config.vk_format_color;
+
+            view_create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            view_create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            view_create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            view_create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+            view_create_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            view_create_info.subresourceRange.baseMipLevel = 0;
+            view_create_info.subresourceRange.levelCount = 1;
+            view_create_info.subresourceRange.baseArrayLayer = 0;
+            view_create_info.subresourceRange.layerCount = 1;
+
+            VkResult result = vkCreateImageView(vulkan_instance->get_vk_device(), &view_create_info, nullptr, &new_swapchain->vk_swapchain_views[i]);
+
+            if (result != VK_SUCCESS) {
+                LOG("vkCreateImageView failed with error code (" << string_VkResult(result) << ")");
+                throw std::runtime_error("vkCreateImageView failed! Please check the log above for more info!");
+            }
+        }
     }
 
     //
@@ -183,6 +224,7 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
     //
     {
         new_swapchain->vk_framebuffers.resize(image_count);
+
         for (uint32_t i = 0; i < image_count; i++) {
             std::vector<VkImageView> attachments = {
                 new_swapchain->vk_swapchain_views[i],

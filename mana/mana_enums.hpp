@@ -43,15 +43,20 @@ namespace ManaVK {
     // ManaFormats are a subset of VkFormats
     // The purpose is to hide many options people wouldn't use for a game engine
     // Plus you can more easily validate if a mana format is supported
+    // But some aliases also exist, like Default
     enum class ManaColorFormat {
         B8G8R8A8_UNorm,
-        R8G8B8A8_UNorm
+        R8G8B8A8_UNorm,
+
+        Default
     };
 
     enum class ManaDepthFormat {
         D16_UNorm_S8_UInt,
         D24_UNorm_S8_UInt,
-        D32_SFloat_S8_UInt
+        D32_SFloat_S8_UInt,
+
+        Default
     };
 
     enum class ManaColorSpace {
@@ -60,7 +65,12 @@ namespace ManaVK {
         // TODO: HDR
     };
 
+    // Returns the closest color format match without aliasing / fallbacks
+    // This is unsafe! Preferably use ManaInstance::get_vk_color_format()!
     int mana_color_format_to_vk_format(ManaColorFormat format);
+
+    // Returns the closest depth format match without aliasing / fallbacks
+    // This is unsafe! Preferably use ManaInstance::get_vk_depth_format()!
     int mana_depth_format_to_vk_format(ManaDepthFormat format);
     int mana_samples_to_vk_samples(ManaSamples samples);
 }

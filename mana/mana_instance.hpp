@@ -28,13 +28,21 @@ SOFTWARE.
 #include <memory>
 #include <string>
 #include <vector>
+#include <functional>
+
+#include <mana/mana_enums.hpp>
 
 namespace ManaVK::Internal {
     class VulkanInstance;
 }
 
+namespace ManaVK::Builders {
+    class ManaRenderPassBuilder;
+}
+
 namespace ManaVK {
     class ManaWindow;
+    class ManaPipeline;
 
     // Mana is generic, but tailored towards game usage
     // This means a transfer, graphics, and present queue are all allocated by default
@@ -86,6 +94,8 @@ namespace ManaVK {
             ManaWindowSettings window_settings;
             ManaDisplaySettings display_settings;
 
+            std::shared_ptr<ManaPipeline> mana_pipeline;
+
             std::string engine_name = "ManaVK Engine";
             ManaVersion engine_version = ManaVersion(1, 0, 0, 0);
 
@@ -94,13 +104,34 @@ namespace ManaVK {
         };
 
     protected:
-        std::unique_ptr<Internal::VulkanInstance> vulkan_instance = nullptr;
+        std::shared_ptr<ManaPipeline> mana_pipeline;
+
+        std::shared_ptr<Internal::VulkanInstance> vulkan_instance = nullptr;
 
         std::shared_ptr<ManaWindow> main_window = nullptr;
         std::vector<std::shared_ptr<ManaWindow>> child_windows;
 
+        std::vector<std::function<void(ManaInstance*)>> release_queue;
+
+        int vk_format_default_color;
+        int vk_format_default_depth;
+
     public:
+        // Bootstraps the user through initial setup without the user having to touch Vulkan once!
         ManaInstance(const ManaConfig& config);
+
+        //
+        // Methods
+        //
+
+        // Usually called before any rendering is done
+        // This will process the release queue
+        // But will also process the transfer queue
+        void flush();
+
+
+        // Queues a release function
+        void enqueue_release(const std::function<void(ManaInstance*)> &func);
 
     public:
         //
@@ -110,6 +141,14 @@ namespace ManaVK {
         std::shared_ptr<ManaWindow> get_main_window() const {
             return main_window;
         }
+
+        [[nodiscard]]
+        std::shared_ptr<Internal::VulkanInstance> get_vulkan_instance() const {
+            return vulkan_instance;
+        }
+
+        int get_vk_color_format(ManaColorFormat format) const;
+        int get_vk_depth_format(ManaDepthFormat format) const;
 
     protected:
         //
