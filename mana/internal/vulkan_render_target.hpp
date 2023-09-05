@@ -22,12 +22,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef SAPPHIRE_MANA_IMAGE_HPP
-#define SAPPHIRE_MANA_IMAGE_HPP
+#ifndef MANA_VULKAN_RENDER_TARGET_HPP
+#define MANA_VULKAN_RENDER_TARGET_HPP
 
+#include <vulkan/vulkan.h>
 
-class mana_image {
-};
+#include <memory>
 
+namespace ManaVK::Internal {
+    class VulkanInstance;
+    class VulkanCmdBuffer;
 
-#endif//SAPPHIRE_MANA_IMAGE_HPP
+    class VulkanRenderTarget {
+    public:
+        [[nodiscard]]
+        virtual std::shared_ptr<VulkanCmdBuffer> get_cmd_buffer() const = 0;
+
+        [[nodiscard]]
+        virtual VkExtent2D get_extent() const = 0;
+
+        [[nodiscard]]
+        virtual VkFramebuffer get_framebuffer(VulkanInstance *vulkan_instance) const = 0;
+    };
+}
+
+#endif//MANA_VULKAN_RENDER_TARGET_HPP

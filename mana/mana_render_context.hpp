@@ -27,18 +27,40 @@ SOFTWARE.
 
 #include <mana/mana_enums.hpp>
 
+namespace ManaVK::Internal {
+    class VulkanRenderTarget;
+}
+
 namespace ManaVK {
     class ManaInstance;
-    class ManaWindow;
 
     // Wraps around a ManaWindow or ManaRenderImage
     // Providing the user with a transparent and seamless way to render to either type of surface
     class ManaRenderContext {
     protected:
+        Internal::VulkanRenderTarget *vulkan_rt = nullptr;
+        ManaInstance *owner = nullptr;
 
+        bool submitted = false;
 
     public:
-        void new_window_frame(ManaWindow *window, ManaInstance *instance);
+        ManaRenderContext(Internal::VulkanRenderTarget *vulkan_rt, ManaInstance *owner);
+        ~ManaRenderContext();
+
+        void submit();
+
+        //
+        // Getters
+        //
+        [[nodiscard]]
+        Internal::VulkanRenderTarget *get_vulkan_rt() const {
+            return vulkan_rt;
+        }
+
+        [[nodiscard]]
+        ManaInstance *get_owner() const {
+            return owner;
+        }
     };
 }
 

@@ -22,12 +22,41 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef SAPPHIRE_MANA_IMAGE_HPP
-#define SAPPHIRE_MANA_IMAGE_HPP
+#ifndef MANA_VULKAN_CMD_BUFFER_HPP
+#define MANA_VULKAN_CMD_BUFFER_HPP
 
+#include <vulkan/vulkan.h>
 
-class mana_image {
-};
+namespace ManaVK::Internal {
+    class VulkanInstance;
+    class VulkanQueue;
 
+    class VulkanCmdBuffer {
+    public:
+        struct BufferConfig {
+            VkCommandBuffer vk_cmd_buffer = nullptr;
+            VkCommandBufferUsageFlags vk_flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        };
 
-#endif//SAPPHIRE_MANA_IMAGE_HPP
+    protected:
+        VulkanQueue *owner = nullptr;
+        VkCommandBuffer vk_cmd_buffer = nullptr;
+        VkCommandBufferUsageFlags vk_flags;
+
+    public:
+        VulkanCmdBuffer(const BufferConfig &config, VulkanQueue *owner);
+
+        void begin(VulkanInstance *vulkan_instance);
+        void end(VulkanInstance *vulkan_instance);
+
+        //
+        // Getters
+        //
+        [[nodiscard]]
+        VkCommandBuffer get_vk_cmd_buffer() const {
+            return vk_cmd_buffer;
+        }
+    };
+}
+
+#endif//MANA_VULKAN_CMD_BUFFER_HPP

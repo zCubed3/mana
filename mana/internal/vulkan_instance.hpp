@@ -276,6 +276,11 @@ namespace ManaVK::Internal {
         }
 
         [[nodiscard]]
+        VmaAllocator get_vma_allocator() const {
+            return vma_allocator;
+        }
+
+        [[nodiscard]]
         VulkanQueue *get_queue_graphics() const {
             return queue_graphics;
         }

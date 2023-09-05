@@ -24,6 +24,10 @@ SOFTWARE.
 
 #include "vulkan_queue.hpp"
 
+#include <mana/internal/vulkan_cmd_buffer.hpp>
+
+#include <vulkan/vk_enum_string_helper.h>
+
 #include <stdexcept>
 #include <iostream>
 
@@ -42,7 +46,7 @@ void Internal::VulkanQueue::warm_queue(VkInstance vk_instance, VkDevice vk_devic
     }
 
     if (vk_device == nullptr) {
-        throw std::runtime_error("vk_device");
+        throw std::runtime_error("vk_device was nullptr!");
     }
 
     vkGetDeviceQueue(vk_device, index, 0, &vk_queue);
@@ -71,7 +75,38 @@ void Internal::VulkanQueue::warm_queue(VkInstance vk_instance, VkDevice vk_devic
     VkResult result = vkCreateCommandPool(vk_device, &pool_create_info, nullptr, &vk_cmd_pool);
 
     if (result != VK_SUCCESS) {
-        LOG("Error: vkCreateCommandPool failed with error code (" << result << ")");
+        LOG("Error: vkCreateCommandPool failed with error code (" << string_VkResult(result) << ")");
         throw std::runtime_error("vkCreateCommandPool failed! Please check the log above for more info!");
     }
+}
+
+Internal::VulkanCmdBuffer *Internal::VulkanQueue::allocate_cmd_buffer(VkDevice vk_device) {
+    if (vk_device == nullptr) {
+        throw std::runtime_error("vk_device was nullptr!");
+    }
+
+    VkCommandBufferAllocateInfo alloc_info{};
+    {
+        alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+
+        alloc_info.commandPool = vk_cmd_pool;
+        alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+        alloc_info.commandBufferCount = 1;
+    }
+
+    VkCommandBuffer vk_buffer = nullptr;
+    VkResult result = vkAllocateCommandBuffers(vk_device, &alloc_info, &vk_buffer);
+
+    if (result != VK_SUCCESS) {
+        LOG("vkAllocateCommandBuffers failed with error code (" << string_VkResult(result) << ")");
+        throw std::runtime_error("vkAllocateCommandBuffers failed! Please check the log above for more info!");
+    }
+
+    VulkanCmdBuffer::BufferConfig config;
+    {
+        config.vk_cmd_buffer = vk_buffer;
+        // TODO: Change flags (when necessary)
+    }
+
+    return new VulkanCmdBuffer(config, this);
 }

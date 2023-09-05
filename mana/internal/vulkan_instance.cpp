@@ -123,7 +123,7 @@ void VulkanInstance::init_create_instance(const VulkanInstance::InstanceSettings
     //
     // Setup main_window further
     //
-    main_window->create_surface(vk_instance);
+    main_window->create_surface(this);
 }
 
 void VulkanInstance::init_find_gpu(const GPUPreferences &prefs) {
@@ -463,15 +463,14 @@ void VulkanInstance::init_presentation(const VulkanInstance::PresentSettings &se
         config.vk_color_space = vulkan_color_format->get_vk_color_space();
         config.vk_present_mode = vk_present_mode;
 
-        // TODO: Fix depth buffers
-        // TODO: Implement VulkanImage
-        //if (vulkan_depth_format) {
-        //    config.vk_format_depth = vulkan_depth_format->get_vk_format();
-        //}
+       if (vulkan_depth_format) {
+           config.vk_format_depth = vulkan_depth_format->get_vk_format();
+       }
 
         config.vk_render_pass = settings.vulkan_render_pass->get_vk_render_pass();
 
         main_window->create_swapchain(this, config);
+        main_window->create_command_objects(this, queue_graphics);
     }
 }
 

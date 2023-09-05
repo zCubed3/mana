@@ -27,6 +27,7 @@ SOFTWARE.
 #include <mana/internal/vulkan_instance.hpp>
 #include <mana/internal/vulkan_queue.hpp>
 #include <mana/internal/vulkan_image.hpp>
+#include <mana/internal/vulkan_cmd_buffer.hpp>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vk_enum_string_helper.h>
@@ -54,12 +55,12 @@ Internal::VulkanWindow::VulkanWindow(const std::string &name, int width, int hei
     );
 }
 
-void Internal::VulkanWindow::create_surface(VkInstance vk_instance) {
-    if (vk_instance == nullptr) {
-        throw std::runtime_error("vk_instance was nullptr!");
+void Internal::VulkanWindow::create_surface(VulkanInstance *vulkan_instance) {
+    if (vulkan_instance == nullptr) {
+        throw std::runtime_error("vulkan_instance was nullptr!");
     }
 
-    if (!SDL_Vulkan_CreateSurface(handle, vk_instance, &vk_surface)) {
+    if (!SDL_Vulkan_CreateSurface(handle, vulkan_instance->get_vk_instance(), &vk_surface)) {
         throw std::runtime_error("SDL_Vulkan_CreateSurface failed!");
     }
 }
@@ -125,6 +126,7 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
         create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
         create_info.preTransform = vk_capabilities.currentTransform;
+
         // TODO: Allow alpha (for overlays)
         create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
@@ -139,8 +141,9 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
         VulkanQueue *queue_present = vulkan_instance->get_queue_present();
 
         std::vector<uint32_t> device_queues = {
-                queue_graphics->get_index(),
-                queue_present->get_index()};
+            queue_graphics->get_index(),
+            queue_present->get_index()
+        };
 
         if (queue_graphics->get_index() != queue_present->get_index()) {
             create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
@@ -165,16 +168,18 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
     //
     if (config.vk_format_depth.has_value()) {
         Internal::VulkanImage::ImageSettings image_settings;
+        {
+            image_settings.vk_format = config.vk_format_depth.value();
+            image_settings.vk_extent = {vk_extent.width, vk_extent.height, 1};
 
-        image_settings.vk_format = config.vk_format_depth.value();
-        image_settings.vk_extent = {vk_extent.width, vk_extent.height, 1};
+            // TODO: Optional stenciling?
+            image_settings.vk_usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+            image_settings.vk_aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
 
-        // TODO: Optional stenciling?
-        image_settings.vk_usage_flags = VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-        image_settings.vk_aspect_flags = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+            image_settings.generate_mipmaps = false;
+        }
 
-        // TODO: Implement VulkaImage!
-        //new_swapchain->vulkan_depth_image = std::make_shared<VulkanImage>();
+        new_swapchain->vulkan_depth_image = std::make_unique<VulkanImage>(vulkan_instance, image_settings);
     }
 
     //
@@ -258,18 +263,49 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
     // Release and replace previous swapchain info
     //
     if (vulkan_swapchain != nullptr) {
-        release_swapchain(vulkan_instance->get_vk_device(), std::move(vulkan_swapchain));
+        release_swapchain(vulkan_instance, std::move(vulkan_swapchain));
     }
 
     vulkan_swapchain = std::move(new_swapchain);
     last_config = config;
 }
 
-void Internal::VulkanWindow::release_swapchain(VkDevice vk_device, std::unique_ptr<VulkanSwapchain> target) {
+void Internal::VulkanWindow::create_command_objects(VulkanInstance *vulkan_instance, VulkanQueue *vulkan_queue) {
+    if (vulkan_queue == nullptr) {
+        throw std::runtime_error("vulkan_queue was nullptr!");
+    }
+
+    if (vulkan_instance == nullptr) {
+        throw std::runtime_error("vulkan_instance was nullptr!");
+    }
+
+    vulkan_cmd_buffer = std::shared_ptr<VulkanCmdBuffer>(vulkan_queue->allocate_cmd_buffer(vulkan_instance->get_vk_device()));
+
+    //
+    // Semaphore creation
+    //
+    VkSemaphoreCreateInfo semaphore_info{};
+    {
+        semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+    }
+
+    VkResult result = vkCreateSemaphore(vulkan_instance->get_vk_device(), &semaphore_info, nullptr, &vk_semaphore_image_available);
+
+    if (result != VK_SUCCESS) {
+        LOG("vkCreateSemaphore failed with error code (" << string_VkResult(result) << ")");
+        throw std::runtime_error("vkCreateSemaphore failed! Please check the log above for more info!");
+    }
+}
+
+void Internal::VulkanWindow::release_swapchain(VulkanInstance *vulkan_instance, std::unique_ptr<VulkanSwapchain> target) {
+    if (vulkan_instance == nullptr) {
+        throw std::runtime_error("vulkan_instance was nullptr!");
+    }
+
     auto actual = std::move(target);
 
     // If no alternative, use our own
-    if (actual == nullptr) {
+    if (!actual) {
         actual = std::move(vulkan_swapchain);
     }
 
@@ -282,12 +318,35 @@ void Internal::VulkanWindow::release_swapchain(VkDevice vk_device, std::unique_p
     // Deallocation (immediate, you're responsible for the syncing)
     //
     if (actual->vk_swapchain != nullptr) {
-        vkDestroySwapchainKHR(vk_device, actual->vk_swapchain, nullptr);
-
-        // TODO: Destroy depth images
+        vkDestroySwapchainKHR(vulkan_instance->get_vk_device(), actual->vk_swapchain, nullptr);
 
         for (auto vk_view: actual->vk_swapchain_views) {
-            vkDestroyImageView(vk_device, vk_view, nullptr);
+            vkDestroyImageView(vulkan_instance->get_vk_device(), vk_view, nullptr);
+        }
+
+        if (actual->vulkan_depth_image) {
+            actual->vulkan_depth_image->release(vulkan_instance);
         }
     }
+}
+
+VkFramebuffer Internal::VulkanWindow::get_framebuffer(VulkanInstance *vulkan_instance) const {
+    if (vulkan_instance == nullptr) {
+        throw std::runtime_error("vulkan_instance was nullptr!");
+    }
+
+    if (!vulkan_swapchain) {
+        throw std::runtime_error("Swapchain was invalid! Have you created it yet?");
+    }
+
+    vkAcquireNextImageKHR(
+        vulkan_instance->get_vk_device(),
+        vulkan_swapchain->vk_swapchain,
+        UINT64_MAX,
+        vk_semaphore_image_available,
+        VK_NULL_HANDLE,
+        &vulkan_swapchain->frame_index
+    );
+
+    return vulkan_swapchain->vk_framebuffers[vulkan_swapchain->frame_index];
 }

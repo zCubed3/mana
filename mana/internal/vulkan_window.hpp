@@ -33,11 +33,15 @@ SOFTWARE.
 #include <optional>
 #include <memory>
 
+#include <mana/internal/vulkan_render_target.hpp>
+
 namespace ManaVK::Internal {
     class VulkanInstance;
     class VulkanImage;
+    class VulkanQueue;
+    class VulkanCmdBuffer;
 
-    class VulkanWindow {
+    class VulkanWindow : public VulkanRenderTarget {
     public:
         struct SwapchainConfig {
             VkFormat vk_format_color;
@@ -51,12 +55,14 @@ namespace ManaVK::Internal {
 
         // TODO: Should this not be part of the window?
         struct VulkanSwapchain {
+            uint32_t frame_index;
+
             VkSwapchainKHR vk_swapchain = nullptr;
             std::vector<VkImage> vk_swapchain_images;
             std::vector<VkImageView> vk_swapchain_views;
             std::vector<VkFramebuffer> vk_framebuffers;
 
-            std::shared_ptr<VulkanImage> vulkan_depth_image;
+            std::unique_ptr<VulkanImage> vulkan_depth_image;
         };
 
     protected:
@@ -64,6 +70,9 @@ namespace ManaVK::Internal {
         VkSurfaceKHR vk_surface = nullptr;
         VkSurfaceCapabilitiesKHR vk_capabilities;
         VkExtent2D vk_extent;
+        VkSemaphore vk_semaphore_image_available = nullptr;
+
+        std::shared_ptr<VulkanCmdBuffer> vulkan_cmd_buffer;
 
         // Used for faster recreation of the swapchain (e.g. resizing)
         SwapchainConfig last_config;
@@ -72,10 +81,11 @@ namespace ManaVK::Internal {
     public:
         VulkanWindow(const std::string& name, int width, int height);
 
-        void create_surface(VkInstance vk_instance);
+        void create_surface(VulkanInstance *vulkan_instance);
         void create_swapchain(VulkanInstance *vulkan_instance, const SwapchainConfig& config);
+        void create_command_objects(VulkanInstance *vulkan_instance, VulkanQueue *vulkan_queue);
 
-        void release_swapchain(VkDevice vk_device, std::unique_ptr<VulkanSwapchain> target = nullptr);
+        void release_swapchain(VulkanInstance *vulkan_instance, std::unique_ptr<VulkanSwapchain> target = nullptr);
 
     public:
         [[nodiscard]]
@@ -87,6 +97,17 @@ namespace ManaVK::Internal {
         VkSurfaceKHR get_vk_surface() const {
            return vk_surface;
         }
+
+        VkExtent2D get_extent() const override {
+           return vk_extent;
+        }
+
+        [[nodiscard]]
+        std::shared_ptr<VulkanCmdBuffer> get_cmd_buffer() const override {
+           return vulkan_cmd_buffer;
+        }
+
+        VkFramebuffer get_framebuffer(VulkanInstance *vulkan_instance) const override;
     };
 }
 

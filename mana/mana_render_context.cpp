@@ -24,20 +24,52 @@ SOFTWARE.
 
 #include "mana_render_context.hpp"
 
-#include <mana/mana_window.hpp>
+#include <mana/mana_instance.hpp>
+
+#include <mana/internal/vulkan_cmd_buffer.hpp>
+#include <mana/internal/vulkan_render_target.hpp>
 
 #include <stdexcept>
 
 using namespace ManaVK;
 
-void ManaRenderContext::new_window_frame(ManaWindow *window, ManaInstance *instance) {
-    if (window == nullptr) {
-        throw std::runtime_error("window was nullptr!");
+ManaRenderContext::ManaRenderContext(Internal::VulkanRenderTarget *vulkan_rt, ManaInstance *owner)
+    : vulkan_rt(vulkan_rt), owner(owner)
+{
+    if (vulkan_rt == nullptr) {
+        throw std::runtime_error("vulkan_rt was nullptr!");
     }
 
-    if (instance == nullptr) {
-        throw std::runtime_error("instance was nullptr!");
+    if (owner == nullptr) {
+        throw std::runtime_error("owner was nullptr!");
     }
 
-    auto vulkan_window = window->get_vulkan_window();
+    auto vulkan_instance = owner->get_vulkan_instance();
+    auto cmd_buffer = vulkan_rt->get_cmd_buffer();
+
+    cmd_buffer->begin(vulkan_instance.get());
+    owner->get_pipeline();
+}
+
+ManaRenderContext::~ManaRenderContext() {
+    if (!submitted) {
+        submit();
+    }
+}
+
+void ManaRenderContext::submit() {
+    if (vulkan_rt == nullptr) {
+        throw std::runtime_error("vulkan_rt was nullptr!");
+    }
+
+    if (owner == nullptr) {
+        throw std::runtime_error("owner was nullptr!");
+    }
+
+    auto vulkan_instance = owner->get_vulkan_instance();
+    auto cmd_buffer = vulkan_rt->get_cmd_buffer();
+
+    cmd_buffer->end(vulkan_instance.get());
+
+    submitted = true;
 }

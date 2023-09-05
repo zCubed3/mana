@@ -27,6 +27,8 @@ SOFTWARE.
 
 #include <memory>
 
+#include <mana/mana_render_context.hpp>
+
 namespace ManaVK::Internal {
     class VulkanWindow;
 }
@@ -37,14 +39,13 @@ namespace ManaVK {
 
     class ManaWindow {
     protected:
-        std::shared_ptr<ManaRenderContext> context;
         ManaInstance *owner = nullptr;
         Internal::VulkanWindow *vulkan_window = nullptr;
 
     public:
         ManaWindow(Internal::VulkanWindow *vulkan_window, ManaInstance *owner);
 
-        std::shared_ptr<ManaRenderContext> begin_rendering();
+        ManaRenderContext new_frame();
 
         //
         // Getters

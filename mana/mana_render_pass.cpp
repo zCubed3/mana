@@ -30,5 +30,14 @@ void ManaVK::ManaRenderPass::release() {
         };
 
         owner->enqueue_release(func);
+        vulkan_render_pass = nullptr;
     }
+}
+
+void ManaRenderPass::begin() {
+    if (vulkan_render_pass == nullptr) {
+        throw std::runtime_error("vulkan_render_pass was nullptr!");
+    }
+
+    vulkan_render_pass->
 }

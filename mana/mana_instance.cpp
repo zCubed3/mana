@@ -329,10 +329,11 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
         //
         // Pipeline building
         //
-        this->mana_pipeline = config.mana_pipeline;
+        mana_pipeline = config.mana_pipeline;
+        mana_pipeline->initialize(this);
 
         {
-            auto render_pass = mana_pipeline->build_render_pass(this);
+            auto render_pass = mana_pipeline->get_window_render_pass();
             present_settings.vulkan_render_pass = render_pass->get_vulkan_render_pass();
         }
 
@@ -345,7 +346,7 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
     //
     // Post-bootstrap
     //
-    main_window = std::make_shared<ManaWindow>(vulkan_instance->main_window);
+    main_window = std::make_shared<ManaWindow>(vulkan_instance->main_window, this);
 }
 
 //
@@ -355,6 +356,8 @@ void ManaInstance::flush() {
     for (auto& func : release_queue) {
         func(this);
     }
+
+    release_queue.clear();
 }
 
 void ManaInstance::enqueue_release(const std::function<void(ManaInstance *)> &func) {

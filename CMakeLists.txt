@@ -22,6 +22,8 @@ set(MANA_SOURCES
     "mana/internal/vulkan_image.cpp"
     "mana/internal/vulkan_render_pass_builder.cpp"
     "mana/internal/vulkan_render_pass.cpp"
+    "mana/internal/vulkan_render_target.cpp"
+    "mana/internal/vulkan_cmd_buffer.cpp"
 
     "mana/builders/mana_render_pass_builder.cpp"
 

@@ -30,6 +30,8 @@ SOFTWARE.
 #include <cstdint>
 
 namespace ManaVK::Internal {
+    class VulkanCmdBuffer;
+
     class VulkanQueue {
     public:
         enum class Type {
@@ -53,6 +55,8 @@ namespace ManaVK::Internal {
         }
 
         void warm_queue(VkInstance vk_instance, VkDevice vk_device);
+
+        VulkanCmdBuffer *allocate_cmd_buffer(VkDevice vk_device);
 
     public:
         [[nodiscard]]

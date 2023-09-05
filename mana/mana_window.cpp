@@ -26,9 +26,9 @@ SOFTWARE.
 
 #include <mana/internal/vulkan_window.hpp>
 
-#include <stdexcept>
-
 #include <mana/mana_render_context.hpp>
+
+#include <stdexcept>
 
 using namespace ManaVK;
 
@@ -37,7 +37,6 @@ ManaWindow::ManaWindow(Internal::VulkanWindow *vulkan_window, ManaInstance *owne
     this->owner = owner;
 }
 
-std::shared_ptr<ManaRenderContext> ManaWindow::begin_rendering() {
-    context->new_frame(this, owner);
-    return context;
+ManaRenderContext ManaWindow::new_frame() {
+    return ManaRenderContext(vulkan_window, owner);
 }

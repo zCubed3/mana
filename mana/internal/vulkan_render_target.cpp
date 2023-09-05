@@ -22,12 +22,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#ifndef SAPPHIRE_MANA_IMAGE_HPP
-#define SAPPHIRE_MANA_IMAGE_HPP
-
-
-class mana_image {
-};
-
-
-#endif//SAPPHIRE_MANA_IMAGE_HPP
+#include "vulkan_render_target.hpp"
