@@ -32,6 +32,8 @@ SOFTWARE.
 
 #include <mana/mana_enums.hpp>
 
+typedef union SDL_Event SDL_Event;
+
 namespace ManaVK::Internal {
     class VulkanInstance;
 }
@@ -80,6 +82,7 @@ namespace ManaVK {
             std::string title = "ManaVK Window";
             int width = 1280;
             int height = 720;
+            bool resizable = true;
         };
 
         struct ManaDisplaySettings {
@@ -132,6 +135,11 @@ namespace ManaVK {
 
         // Queues a release function
         void enqueue_release(const std::function<void(ManaInstance*)> &func);
+
+        //
+        // SDL / ImGui
+        //
+        void process_sdl_event(SDL_Event *event);
 
     public:
         //

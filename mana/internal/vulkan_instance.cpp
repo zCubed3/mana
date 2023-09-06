@@ -46,7 +46,7 @@ using namespace ManaVK::Internal;
 // Setup stages
 //
 void VulkanInstance::init_spawn_window(const VulkanInstance::WindowSettings& settings) {
-    main_window = new VulkanWindow(settings.title, settings.width, settings.height);
+    main_window = new VulkanWindow(settings.title, settings.width, settings.height, settings.resizable);
 }
 
 void VulkanInstance::init_create_instance(const VulkanInstance::InstanceSettings& settings) {
@@ -188,8 +188,10 @@ void VulkanInstance::init_find_gpu(const GPUPreferences &prefs) {
 
         std::vector<VulkanQueue*> found_queues;
 
-        // TODO: Better queue exclusivity?
+        // TODO: Better queue exclusivity for graphics and present?
         for (VkQueueFamilyProperties queue_family: queue_families) {
+            bool found_graphics = false;
+
             for (auto& type : requested_queues) {
                 // Ensure we haven't already found a suitable queue
                 bool already_found = false;
@@ -207,41 +209,25 @@ void VulkanInstance::init_find_gpu(const GPUPreferences &prefs) {
                 bool unique = false;
                 VulkanQueue *queue = new VulkanQueue(type, queue_index);
 
-                switch (type) {
-                    case VulkanQueue::Type::Graphics: {
-                        if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                            found_queues.push_back(queue);
-                            unique = true;
-                        }
+                if (type == VulkanQueue::Type::Graphics) {
 
-                        break;
+                    if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                        found_queues.push_back(queue);
+                        found_graphics = true;
                     }
 
-                    case VulkanQueue::Type::Transfer: {
-                        if (queue_family.queueFlags & VK_QUEUE_TRANSFER_BIT) {
-                            found_queues.push_back(queue);
-                            unique = true;
-                        }
+                } else if (type == VulkanQueue::Type::Present) {
+                    VkBool32 surface_support = false;
+                    vkGetPhysicalDeviceSurfaceSupportKHR(gpu, queue_index, main_window->get_vk_surface(), &surface_support);
 
-                        break;
+                    if (surface_support) {
+                        found_queues.push_back(queue);
+                        found_graphics = true;
                     }
-
-                        // TODO: Does every window need a unique present queue
-                    case VulkanQueue::Type::Present: {
-                        VkBool32 surface_support = false;
-                        vkGetPhysicalDeviceSurfaceSupportKHR(gpu, queue_index, main_window->get_vk_surface(), &surface_support);
-
-                        if (surface_support) {
-                            found_queues.push_back(queue);
-                            unique = true;
-                        }
-
-                        break;
+                } else if (type == VulkanQueue::Type::Transfer) {
+                    if (queue_family.queueFlags & VK_QUEUE_TRANSFER_BIT && !found_graphics) {
+                        found_queues.push_back(queue);
                     }
-                }
-
-                if (unique) {
-                    break;
                 }
             }
 

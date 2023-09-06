@@ -90,8 +90,9 @@ Internal::VulkanCmdBuffer *Internal::VulkanQueue::allocate_cmd_buffer(VkDevice v
         alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 
         alloc_info.commandPool = vk_cmd_pool;
-        alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         alloc_info.commandBufferCount = 1;
+
+        alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
     }
 
     VkCommandBuffer vk_buffer = nullptr;

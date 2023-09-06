@@ -187,7 +187,19 @@ std::shared_ptr<Internal::VulkanRenderPass> Internal::VulkanRenderPassBuilder::b
         throw std::runtime_error("vkCreateRenderPass failed! Please check the log above for more info!");
     }
 
-    return std::make_shared<VulkanRenderPass>(vk_render_pass);
+    VulkanRenderPass::PassConfig config {};
+    {
+        config.vk_render_pass = vk_render_pass;
+
+        config.attachment_count = color_attachments.size();
+
+        if (depth_attachment.has_value()) {
+            config.depth_index = color_attachments.size();
+            config.attachment_count += 1;
+        }
+    }
+
+    return std::make_shared<VulkanRenderPass>(config);
 }
 
 //

@@ -44,7 +44,7 @@ SOFTWARE.
 using namespace ManaVK;
 
 // TODO: Window position?
-Internal::VulkanWindow::VulkanWindow(const std::string &name, int width, int height) {
+Internal::VulkanWindow::VulkanWindow(const std::string &name, int width, int height, bool resizable) {
     handle = SDL_CreateWindow(
         name.c_str(),
         SDL_WINDOWPOS_CENTERED,
@@ -53,6 +53,12 @@ Internal::VulkanWindow::VulkanWindow(const std::string &name, int width, int hei
         height,
         SDL_WINDOW_VULKAN
     );
+
+    if (handle == nullptr) {
+        throw std::runtime_error("handle was nullptr!");
+    }
+
+    SDL_SetWindowResizable(handle, static_cast<SDL_bool>(resizable));
 }
 
 void Internal::VulkanWindow::create_surface(VulkanInstance *vulkan_instance) {
@@ -131,7 +137,7 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
         create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
 
         create_info.presentMode = config.vk_present_mode;
-        create_info.clipped = VK_TRUE;
+        create_info.clipped = true;
 
         if (vulkan_swapchain != nullptr) {
             create_info.oldSwapchain = vulkan_swapchain->vk_swapchain;
@@ -192,7 +198,7 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
     }
 
     //
-    // Creating views
+    // Swapchain views
     //
     {
         new_swapchain->vk_swapchain_views.resize(image_count);
@@ -225,7 +231,7 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
     }
 
     //
-    // Creating framebuffers
+    // Framebuffer creation
     //
     {
         new_swapchain->vk_framebuffers.resize(image_count);
@@ -242,11 +248,15 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
             VkFramebufferCreateInfo framebuffer_create_info{};
             {
                 framebuffer_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+
                 framebuffer_create_info.renderPass = config.vk_render_pass;
+
                 framebuffer_create_info.attachmentCount = static_cast<uint32_t>(attachments.size());
                 framebuffer_create_info.pAttachments = attachments.data();
+
                 framebuffer_create_info.width = vk_extent.width;
                 framebuffer_create_info.height = vk_extent.height;
+
                 framebuffer_create_info.layers = 1;
             }
 
@@ -266,8 +276,8 @@ void Internal::VulkanWindow::create_swapchain(VulkanInstance *vulkan_instance, c
         release_swapchain(vulkan_instance, std::move(vulkan_swapchain));
     }
 
-    vulkan_swapchain = std::move(new_swapchain);
     last_config = config;
+    vulkan_swapchain = std::move(new_swapchain);
 }
 
 void Internal::VulkanWindow::create_command_objects(VulkanInstance *vulkan_instance, VulkanQueue *vulkan_queue) {
@@ -282,19 +292,49 @@ void Internal::VulkanWindow::create_command_objects(VulkanInstance *vulkan_insta
     vulkan_cmd_buffer = std::shared_ptr<VulkanCmdBuffer>(vulkan_queue->allocate_cmd_buffer(vulkan_instance->get_vk_device()));
 
     //
-    // Semaphore creation
+    // Sync object creation
     //
     VkSemaphoreCreateInfo semaphore_info{};
     {
         semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     }
 
-    VkResult result = vkCreateSemaphore(vulkan_instance->get_vk_device(), &semaphore_info, nullptr, &vk_semaphore_image_available);
+    {
+        VkResult result = vkCreateSemaphore(vulkan_instance->get_vk_device(), &semaphore_info, nullptr, &vk_semaphore_image_ready);
 
-    if (result != VK_SUCCESS) {
-        LOG("vkCreateSemaphore failed with error code (" << string_VkResult(result) << ")");
-        throw std::runtime_error("vkCreateSemaphore failed! Please check the log above for more info!");
+        if (result != VK_SUCCESS) {
+            LOG("vkCreateSemaphore failed with error code (" << string_VkResult(result) << ")");
+            throw std::runtime_error("vkCreateSemaphore failed! Please check the log above for more info!");
+        }
     }
+
+    {
+        VkResult result = vkCreateSemaphore(vulkan_instance->get_vk_device(), &semaphore_info, nullptr, &vk_semaphore_work_done);
+
+        if (result != VK_SUCCESS) {
+            LOG("vkCreateSemaphore failed with error code (" << string_VkResult(result) << ")");
+            throw std::runtime_error("vkCreateSemaphore failed! Please check the log above for more info!");
+        }
+    }
+
+    VkFenceCreateInfo fence_info {};
+    {
+        fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    }
+
+    {
+        VkResult result = vkCreateFence(vulkan_instance->get_vk_device(), &fence_info, nullptr, &vk_fence);
+
+        if (result != VK_SUCCESS) {
+            LOG("vkCreateFence failed with error code (" << string_VkResult(result) << ")");
+            throw std::runtime_error("vkCreateFence failed! Please check the log above for more info!");
+        }
+    }
+}
+
+void Internal::VulkanWindow::recreate_swapchain(Internal::VulkanInstance *vulkan_instance) {
+    LOG("RECREATING SWAPCHAIN");
+    create_swapchain(vulkan_instance, last_config);
 }
 
 void Internal::VulkanWindow::release_swapchain(VulkanInstance *vulkan_instance, std::unique_ptr<VulkanSwapchain> target) {
@@ -330,7 +370,7 @@ void Internal::VulkanWindow::release_swapchain(VulkanInstance *vulkan_instance, 
     }
 }
 
-VkFramebuffer Internal::VulkanWindow::get_framebuffer(VulkanInstance *vulkan_instance) const {
+VkFramebuffer Internal::VulkanWindow::get_vk_framebuffer(VulkanInstance *vulkan_instance) const {
     if (vulkan_instance == nullptr) {
         throw std::runtime_error("vulkan_instance was nullptr!");
     }
@@ -343,10 +383,40 @@ VkFramebuffer Internal::VulkanWindow::get_framebuffer(VulkanInstance *vulkan_ins
         vulkan_instance->get_vk_device(),
         vulkan_swapchain->vk_swapchain,
         UINT64_MAX,
-        vk_semaphore_image_available,
-        VK_NULL_HANDLE,
+        vk_semaphore_image_ready,
+        nullptr, // TODO: Fence?
         &vulkan_swapchain->frame_index
     );
 
     return vulkan_swapchain->vk_framebuffers[vulkan_swapchain->frame_index];
+}
+
+void Internal::VulkanWindow::await_frame(VulkanInstance *vulkan_instance) const {
+    if (vulkan_instance == nullptr) {
+        throw std::runtime_error("vulkan_instance was nullptr!");
+    }
+
+    //vkQueueWaitIdle(vulkan_instance->get_queue_present()->get_vk_queue());
+
+    vkWaitForFences(vulkan_instance->get_vk_device(), 1, &vk_fence, VK_TRUE, UINT64_MAX);
+    vkResetFences(vulkan_instance->get_vk_device(), 1, &vk_fence);
+}
+
+void Internal::VulkanWindow::present_frame(Internal::VulkanInstance *vulkan_instance) const {
+    if (vulkan_instance == nullptr) {
+        throw std::runtime_error("vulkan_instance was nullptr!");
+    }
+
+    VulkanCmdBuffer::PresentInfo info {};
+    {
+        info.vulkan_queue_present = vulkan_instance->get_queue_present();
+
+        info.frame_index = vulkan_swapchain->frame_index;
+        info.vk_swapchain = vulkan_swapchain->vk_swapchain;
+
+        info.vk_semaphore_work_done = vk_semaphore_work_done;
+    }
+
+    //vkQueueWaitIdle(vulkan_instance->get_queue_graphics()->get_vk_queue());
+    vulkan_cmd_buffer->present(info);
 }

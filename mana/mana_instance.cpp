@@ -25,12 +25,15 @@ SOFTWARE.
 #include "mana_instance.hpp"
 
 #include <mana/internal/vulkan_instance.hpp>
+#include <mana/internal/vulkan_render_pass.hpp>
 
 #include <mana/mana_pipeline.hpp>
 #include <mana/mana_render_pass.hpp>
 #include <mana/mana_window.hpp>
 
 #include <vulkan/vk_enum_string_helper.h>
+
+#include <SDL.h>
 
 #include <iostream>
 
@@ -43,6 +46,8 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
     //
     // VulkanInstance bootstrapping
     //
+    SDL_Init(SDL_INIT_VIDEO);
+
     vulkan_instance = std::make_unique<Internal::VulkanInstance>();
 
     // Window creation
@@ -52,6 +57,7 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
         window_settings.title = config.window_settings.title;
         window_settings.width = config.window_settings.width;
         window_settings.height = config.window_settings.height;
+        window_settings.resizable = config.window_settings.resizable;
 
         vulkan_instance->init_spawn_window(window_settings);
     }
@@ -116,6 +122,16 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             }
 
             instance_settings.extensions = filtered.found;
+
+            if (config.debugging.verbose) {
+                LOG("===== ENABLED INSTANCE EXTENSIONS =====");
+
+                for (auto& found : filtered.found) {
+                    LOG(found.get_name() << " (required = " << std::boolalpha << found.is_required() << ")");
+                }
+
+                LOG("=======================================");
+            }
         }
 
         // Setup and validate layers
@@ -155,6 +171,16 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             }
 
             instance_settings.layers = filtered.found;
+
+            if (config.debugging.verbose) {
+                LOG("===== ENABLED LAYERS =====");
+
+                for (auto& found : filtered.found) {
+                    LOG(found.get_name() << " (required = " << std::boolalpha << found.is_required() << ")");
+                }
+
+                LOG("==========================");
+            }
         }
 
         vulkan_instance->init_create_instance(instance_settings);
@@ -208,6 +234,16 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
             }
 
             device_settings.extensions = filtered.found;
+
+            if (config.debugging.verbose) {
+                LOG("===== ENABLED DEVICE FEATURES =====");
+
+                for (auto& found : filtered.found) {
+                    LOG(found.get_name() << " (required = " << std::boolalpha << found.is_required() << ")");
+                }
+
+                LOG("===================================");
+            }
         }
 
         vulkan_instance->init_create_device(device_settings);
@@ -335,6 +371,11 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
         {
             auto render_pass = mana_pipeline->get_window_render_pass();
             present_settings.vulkan_render_pass = render_pass->get_vulkan_render_pass();
+
+            // Disable depth if our pipeline doesn't call for it
+            if (!present_settings.vulkan_render_pass->has_depth()) {
+                present_settings.depth_formats.clear();
+            }
         }
 
         //
@@ -353,6 +394,8 @@ ManaInstance::ManaInstance(const ManaVK::ManaInstance::ManaConfig &config) {
 // Methods
 //
 void ManaInstance::flush() {
+    main_window->flush(this);
+
     for (auto& func : release_queue) {
         func(this);
     }
@@ -362,6 +405,21 @@ void ManaInstance::flush() {
 
 void ManaInstance::enqueue_release(const std::function<void(ManaInstance *)> &func) {
     release_queue.emplace_back(func);
+}
+
+//
+// SDL / ImGui
+//
+void ManaInstance::process_sdl_event(SDL_Event *event) {
+    if (event == nullptr) {
+        throw std::runtime_error("SDL event was nullptr!");
+    }
+
+    // TODO: Handle this better when child windows are added
+    if (event->window.event == SDL_WINDOWEVENT_RESIZED) {
+        // Marking a window dirty means the window will recreate the swapchain asap
+        main_window->mark_dirty();
+    }
 }
 
 //

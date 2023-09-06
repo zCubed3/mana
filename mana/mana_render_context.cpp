@@ -45,10 +45,9 @@ ManaRenderContext::ManaRenderContext(Internal::VulkanRenderTarget *vulkan_rt, Ma
     }
 
     auto vulkan_instance = owner->get_vulkan_instance();
-    auto cmd_buffer = vulkan_rt->get_cmd_buffer();
+    auto cmd_buffer = vulkan_rt->get_vulkan_cmd_buffer();
 
     cmd_buffer->begin(vulkan_instance.get());
-    owner->get_pipeline();
 }
 
 ManaRenderContext::~ManaRenderContext() {
@@ -67,9 +66,21 @@ void ManaRenderContext::submit() {
     }
 
     auto vulkan_instance = owner->get_vulkan_instance();
-    auto cmd_buffer = vulkan_rt->get_cmd_buffer();
+    auto cmd_buffer = vulkan_rt->get_vulkan_cmd_buffer();
 
     cmd_buffer->end(vulkan_instance.get());
+
+    Internal::VulkanCmdBuffer::SubmitInfo submit_info {};
+    {
+        submit_info.vk_fence = vulkan_rt->get_vk_fence();
+
+        submit_info.vk_wait_semaphores.push_back(vulkan_rt->get_vk_semaphore_image_ready());
+        
+        submit_info.vk_signal_semaphores.push_back(vulkan_rt->get_vk_semaphore_work_done());
+    }
+
+    cmd_buffer->submit(submit_info);
+    vulkan_rt->present_frame(vulkan_instance.get());
 
     submitted = true;
 }

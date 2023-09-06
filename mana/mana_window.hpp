@@ -41,11 +41,21 @@ namespace ManaVK {
     protected:
         ManaInstance *owner = nullptr;
         Internal::VulkanWindow *vulkan_window = nullptr;
+        bool dirty = false;
 
     public:
         ManaWindow(Internal::VulkanWindow *vulkan_window, ManaInstance *owner);
 
         ManaRenderContext new_frame();
+
+        void flush(ManaInstance *mana_instance);
+
+        //
+        // Setters
+        //
+        void mark_dirty() {
+            dirty = true;
+        }
 
         //
         // Getters

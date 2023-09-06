@@ -33,16 +33,29 @@ namespace ManaVK::Internal {
     class VulkanInstance;
     class VulkanCmdBuffer;
 
+    // TODO: Frames in flight
     class VulkanRenderTarget {
     public:
         [[nodiscard]]
-        virtual std::shared_ptr<VulkanCmdBuffer> get_cmd_buffer() const = 0;
+        virtual std::shared_ptr<VulkanCmdBuffer> get_vulkan_cmd_buffer() const = 0;
 
         [[nodiscard]]
-        virtual VkExtent2D get_extent() const = 0;
+        virtual VkExtent2D get_vk_extent() const = 0;
 
         [[nodiscard]]
-        virtual VkFramebuffer get_framebuffer(VulkanInstance *vulkan_instance) const = 0;
+        virtual VkFramebuffer get_vk_framebuffer(VulkanInstance *vulkan_instance) const = 0;
+
+        [[nodiscard]]
+        virtual VkSemaphore get_vk_semaphore_work_done() const = 0;
+
+        [[nodiscard]]
+        virtual VkSemaphore get_vk_semaphore_image_ready() const = 0;
+
+        [[nodiscard]]
+        virtual VkFence get_vk_fence() const = 0;
+
+        virtual void await_frame(VulkanInstance *vulkan_instance) const = 0;
+        virtual void present_frame(VulkanInstance *vulkan_instance) const = 0;
     };
 }
 

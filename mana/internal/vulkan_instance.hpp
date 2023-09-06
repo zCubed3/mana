@@ -148,6 +148,7 @@ namespace ManaVK::Internal {
             std::string title = "ManaVK Window";
             int width = 1280;
             int height = 720;
+            bool resizable = false;
         };
 
         struct InstanceSettings {

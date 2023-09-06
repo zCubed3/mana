@@ -40,11 +40,19 @@ namespace ManaVK {
         Raster, Compute, Raytracing
     };
 
+    // Infers how you want a render pass to handle a layout change between subpasses
+    enum class ManaAttachmentIntent {
+        Default,
+        Presentation
+    };
+
     // ManaFormats are a subset of VkFormats
     // The purpose is to hide many options people wouldn't use for a game engine
     // Plus you can more easily validate if a mana format is supported
     // But some aliases also exist, like Default
     enum class ManaColorFormat {
+        Unknown,
+
         B8G8R8A8_UNorm,
         R8G8B8A8_UNorm,
 
@@ -52,6 +60,8 @@ namespace ManaVK {
     };
 
     enum class ManaDepthFormat {
+        Unknown,
+
         D16_UNorm_S8_UInt,
         D24_UNorm_S8_UInt,
         D32_SFloat_S8_UInt,

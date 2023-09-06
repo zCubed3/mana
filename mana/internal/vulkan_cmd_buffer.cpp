@@ -26,6 +26,8 @@ SOFTWARE.
 
 #include <vulkan/vk_enum_string_helper.h>
 
+#include <mana/internal/vulkan_queue.hpp>
+
 #include <iostream>
 #include <stdexcept>
 
@@ -50,6 +52,19 @@ VulkanCmdBuffer::VulkanCmdBuffer(const BufferConfig &config, VulkanQueue *owner)
 }
 
 void VulkanCmdBuffer::begin(VulkanInstance *vulkan_instance) {
+    //
+    // Reset
+    //
+    VkResult result = vkResetCommandBuffer(vk_cmd_buffer, 0);
+
+    if (result != VK_SUCCESS) {
+        LOG("Error: vkResetCommandBuffer failed with error code (" << string_VkResult(result) << ")");
+        throw std::runtime_error("vkResetCommandBuffer failed! Please check the log above for more info!");
+    }
+
+    //
+    // Begin command
+    //
     if (vulkan_instance == nullptr) {
         throw std::runtime_error("vulkan_instance was nullptr!");
     }
@@ -60,7 +75,7 @@ void VulkanCmdBuffer::begin(VulkanInstance *vulkan_instance) {
         buffer_begin_info.flags = vk_flags;
     }
 
-    VkResult result = vkBeginCommandBuffer(vk_cmd_buffer, &buffer_begin_info);
+    result = vkBeginCommandBuffer(vk_cmd_buffer, &buffer_begin_info);
 
     if (result != VK_SUCCESS) {
         LOG("Error: vkBeginCommandBuffer failed with error code (" << string_VkResult(result) << ")");
@@ -75,4 +90,44 @@ void VulkanCmdBuffer::end(VulkanInstance *vulkan_instance) {
         LOG("Error: vkEndCommandBuffer failed with error code (" << string_VkResult(result) << ")");
         throw std::runtime_error("vkEndCommandBuffer failed! Please check the log above for more info!");
     }
+}
+
+void VulkanCmdBuffer::submit(const SubmitInfo &info) {
+    // It's up the user to await their submitted semaphores
+    VkSubmitInfo submit_info{};
+    {
+        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+        submit_info.waitSemaphoreCount = info.vk_wait_semaphores.size();
+        submit_info.pWaitSemaphores = info.vk_wait_semaphores.data();
+        submit_info.pWaitDstStageMask = info.vk_wait_flags.data();
+
+        submit_info.signalSemaphoreCount = info.vk_signal_semaphores.size();
+        submit_info.pSignalSemaphores = info.vk_signal_semaphores.data();
+
+        submit_info.commandBufferCount = 1;
+        submit_info.pCommandBuffers = &vk_cmd_buffer;
+    }
+
+    VkResult result = vkQueueSubmit(owner->get_vk_queue(), 1, &submit_info, info.vk_fence);
+    if (result != VK_SUCCESS) {
+        LOG("Error: vkQueueSubmit failed with error code (" << string_VkResult(result) << ")");
+        throw std::runtime_error("vkQueueSubmit failed! Please check the log above for more info!");
+    }
+}
+
+void VulkanCmdBuffer::present(const PresentInfo &info) {
+    VkPresentInfoKHR present_info{};
+    {
+        present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+
+        present_info.waitSemaphoreCount = 1;
+        present_info.pWaitSemaphores = &info.vk_semaphore_work_done;
+
+        present_info.swapchainCount = 1;
+        present_info.pSwapchains = &info.vk_swapchain;
+        present_info.pImageIndices = &info.frame_index;
+    }
+
+    vkQueuePresentKHR(info.vulkan_queue_present->get_vk_queue(), &present_info);
 }

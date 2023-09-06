@@ -27,22 +27,54 @@ SOFTWARE.
 
 #include <vulkan/vulkan.h>
 
+#include <optional>
+#include <vector>
+
 namespace ManaVK::Internal {
+    class VulkanCmdBuffer;
+    class VulkanRenderPass;
+    class VulkanRenderTarget;
+    class VulkanInstance;
+
     class VulkanRenderPass {
+    public:
+        struct PassConfig {
+            VkRenderPass vk_render_pass = nullptr;
+
+            uint32_t attachment_count;
+            std::optional<uint32_t> depth_index;
+        };
+
+        struct StateInfo {
+            VulkanRenderTarget *vulkan_render_target = nullptr;
+
+            std::vector<VkClearValue> vk_clear_values;
+            std::optional<VkExtent2D> vk_render_area;
+            std::optional<VkOffset2D> vk_render_offset;
+        };
+
     protected:
         VkRenderPass vk_render_pass = nullptr;
+        uint32_t attachment_count = 0;
+        std::optional<uint32_t> depth_index;
 
     public:
-        VulkanRenderPass(VkRenderPass vk_render_pass) {
-            this->vk_render_pass = vk_render_pass;
-        }
+        VulkanRenderPass(const PassConfig &config);
+
+        void begin(VulkanInstance *vulkan_instance, const StateInfo &info);
+        void end(const StateInfo &info);
+
+        void release(VkDevice vk_device);
 
         [[nodiscard]]
         VkRenderPass get_vk_render_pass() const {
             return vk_render_pass;
         }
 
-        void release(VkDevice vk_device);
+        [[nodiscard]]
+        bool has_depth() const {
+            return depth_index.has_value();
+        }
     };
 }
 

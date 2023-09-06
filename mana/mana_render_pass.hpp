@@ -27,6 +27,8 @@ SOFTWARE.
 
 #include <memory>
 
+#include <mana/mana_render_context.hpp>
+
 namespace ManaVK::Internal {
     class VulkanRenderPass;
 }
@@ -42,6 +44,9 @@ namespace ManaVK {
     public:
         ManaRenderPass(std::shared_ptr<Internal::VulkanRenderPass> render_pass, ManaInstance *owner);
         ~ManaRenderPass();
+
+        void begin(ManaRenderContext& context);
+        void end(ManaRenderContext& context);
 
         void release();
 

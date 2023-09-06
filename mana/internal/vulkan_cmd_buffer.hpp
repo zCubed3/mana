@@ -27,6 +27,8 @@ SOFTWARE.
 
 #include <vulkan/vulkan.h>
 
+#include <vector>
+
 namespace ManaVK::Internal {
     class VulkanInstance;
     class VulkanQueue;
@@ -36,6 +38,24 @@ namespace ManaVK::Internal {
         struct BufferConfig {
             VkCommandBuffer vk_cmd_buffer = nullptr;
             VkCommandBufferUsageFlags vk_flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+        };
+
+        struct SubmitInfo {
+            VkFence vk_fence;
+            std::vector<VkSemaphore> vk_wait_semaphores;
+            std::vector<VkSemaphore> vk_signal_semaphores;
+
+            std::vector<VkPipelineStageFlags> vk_wait_flags {
+                VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+            };
+        };
+
+        struct PresentInfo {
+            VulkanQueue *vulkan_queue_present = nullptr;
+            VkSemaphore vk_semaphore_work_done = nullptr;
+
+            VkSwapchainKHR vk_swapchain = nullptr;
+            uint32_t frame_index = 0;
         };
 
     protected:
@@ -48,6 +68,9 @@ namespace ManaVK::Internal {
 
         void begin(VulkanInstance *vulkan_instance);
         void end(VulkanInstance *vulkan_instance);
+
+        void submit(const SubmitInfo &info);
+        void present(const PresentInfo &info);
 
         //
         // Getters

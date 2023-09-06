@@ -38,12 +38,11 @@ set(MANA_SOURCES
 
 add_library(Mana STATIC ${MANA_SOURCES})
 
-target_include_directories(Mana PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} SDL2)
-
-target_link_libraries(Mana PUBLIC ${Vulkan_LIBRARY} VulkanMemoryAllocator SDL2)
-
-# TODO: Allow the user to optionally include Vulkan headers?
-target_include_directories(Mana PRIVATE
+target_include_directories(Mana PUBLIC
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    SDL2
     ${Vulkan_INCLUDE_DIRS}
     VulkanMemoryAllocator
 )
+
+target_link_libraries(Mana PUBLIC ${Vulkan_LIBRARY} VulkanMemoryAllocator SDL2)

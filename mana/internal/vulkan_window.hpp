@@ -70,20 +70,24 @@ namespace ManaVK::Internal {
         VkSurfaceKHR vk_surface = nullptr;
         VkSurfaceCapabilitiesKHR vk_capabilities;
         VkExtent2D vk_extent;
-        VkSemaphore vk_semaphore_image_available = nullptr;
+
+        VkSemaphore vk_semaphore_image_ready = nullptr;
+        VkSemaphore vk_semaphore_work_done = nullptr;
+        VkFence vk_fence = nullptr;
 
         std::shared_ptr<VulkanCmdBuffer> vulkan_cmd_buffer;
-
-        // Used for faster recreation of the swapchain (e.g. resizing)
-        SwapchainConfig last_config;
         std::unique_ptr<VulkanSwapchain> vulkan_swapchain;
 
+        SwapchainConfig last_config;
+
     public:
-        VulkanWindow(const std::string& name, int width, int height);
+        VulkanWindow(const std::string& name, int width, int height, bool resizable);
 
         void create_surface(VulkanInstance *vulkan_instance);
         void create_swapchain(VulkanInstance *vulkan_instance, const SwapchainConfig& config);
         void create_command_objects(VulkanInstance *vulkan_instance, VulkanQueue *vulkan_queue);
+
+        void recreate_swapchain(VulkanInstance *vulkan_instance);
 
         void release_swapchain(VulkanInstance *vulkan_instance, std::unique_ptr<VulkanSwapchain> target = nullptr);
 
@@ -98,16 +102,36 @@ namespace ManaVK::Internal {
            return vk_surface;
         }
 
-        VkExtent2D get_extent() const override {
+        [[nodiscard]]
+        VkExtent2D get_vk_extent() const override {
            return vk_extent;
         }
 
         [[nodiscard]]
-        std::shared_ptr<VulkanCmdBuffer> get_cmd_buffer() const override {
+        std::shared_ptr<VulkanCmdBuffer> get_vulkan_cmd_buffer() const override {
            return vulkan_cmd_buffer;
         }
 
-        VkFramebuffer get_framebuffer(VulkanInstance *vulkan_instance) const override;
+        VkFramebuffer get_vk_framebuffer(VulkanInstance *vulkan_instance) const override;
+
+        [[nodiscard]]
+        VkSemaphore get_vk_semaphore_work_done() const override {
+           return vk_semaphore_work_done;
+        }
+
+        [[nodiscard]]
+        VkSemaphore get_vk_semaphore_image_ready() const override {
+           return vk_semaphore_image_ready;
+        }
+
+        [[nodiscard]]
+        VkFence get_vk_fence() const override {
+           return vk_fence;
+        }
+
+        void await_frame(VulkanInstance *vulkan_instance) const override;
+
+        void present_frame(VulkanInstance *vulkan_instance) const override;
     };
 }
 

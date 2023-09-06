@@ -42,6 +42,7 @@ namespace ManaVK::Internal {
             // TODO: Compute queue?
         };
 
+    protected:
         Type type;
         uint32_t index;
         VkQueue vk_queue = nullptr;
@@ -67,6 +68,11 @@ namespace ManaVK::Internal {
         [[nodiscard]]
         uint32_t get_index() const {
             return index;
+        }
+
+        [[nodiscard]]
+        VkQueue get_vk_queue() const {
+            return vk_queue;
         }
     };
 }

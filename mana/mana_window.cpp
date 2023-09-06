@@ -26,6 +26,7 @@ SOFTWARE.
 
 #include <mana/internal/vulkan_window.hpp>
 
+#include <mana/mana_instance.hpp>
 #include <mana/mana_render_context.hpp>
 
 #include <stdexcept>
@@ -38,5 +39,14 @@ ManaWindow::ManaWindow(Internal::VulkanWindow *vulkan_window, ManaInstance *owne
 }
 
 ManaRenderContext ManaWindow::new_frame() {
+    // TODO: Frames in flight
+    vulkan_window->await_frame(owner->get_vulkan_instance().get());
     return ManaRenderContext(vulkan_window, owner);
+}
+
+void ManaWindow::flush(ManaInstance *mana_instance) {
+    if (dirty) {
+        vulkan_window->recreate_swapchain(mana_instance->get_vulkan_instance().get());
+        dirty = false;
+    }
 }
